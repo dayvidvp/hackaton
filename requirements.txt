@@ -1,0 +1,7 @@
+flask
+flask-session
+anthropic
+requests
+python-dotenv
+pytest
+pytest-mock
