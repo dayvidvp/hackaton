@@ -1,0 +1,25 @@
+{
+  "pages": [
+    {
+      "id": "123456",
+      "title": "Oplossing: Login timeout problemen",
+      "body": "## Probleem\nGebruikers worden uitgelogd na 30 seconden inactiviteit.\n\n## Oplossing\nSession timeout verhoogd in `application.yml`: `server.servlet.session.timeout=3600`. Herstart applicatie server na wijziging.\n\n## Verificatie\nLog in en wacht 5 minuten — sessie blijft actief.",
+      "url": "https://yourcompany.atlassian.net/wiki/spaces/PROJ/pages/123456",
+      "last_modified": "2026-03-10"
+    },
+    {
+      "id": "123457",
+      "title": "Oplossing: API timeout bij grote data exports",
+      "body": "## Probleem\nExports van meer dan 500 rijen resulteren in een 504 Gateway Timeout.\n\n## Oplossing\nPaginering geïmplementeerd. Gebruik `?page=1&size=500` parameter. Zie `ExportController.java` voor implementatie.\n\n## Verificatie\nTest met 1000 rijen export — moet in 2 requests van 500 voltooien.",
+      "url": "https://yourcompany.atlassian.net/wiki/spaces/PROJ/pages/123457",
+      "last_modified": "2026-02-15"
+    },
+    {
+      "id": "123458",
+      "title": "Handleiding: Email notificaties configureren",
+      "body": "## SMTP Configuratie\nVereiste omgevingsvariabelen:\n- `SMTP_HOST`: smtp.office365.com\n- `SMTP_PORT`: 587\n- `SMTP_USER`: noreply@sterima.be\n\n## Testen\nGebruik de `/admin/test-email` endpoint om een testmail te sturen.",
+      "url": "https://yourcompany.atlassian.net/wiki/spaces/PROJ/pages/123458",
+      "last_modified": "2026-01-20"
+    }
+  ]
+}

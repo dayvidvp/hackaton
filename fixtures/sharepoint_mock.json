@@ -1,0 +1,25 @@
+{
+  "documents": [
+    {
+      "id": "doc-001",
+      "name": "Technische Handleiding API Integratie.docx",
+      "summary": "Stap-voor-stap handleiding voor het integreren met de Sterima REST API. Bevat authenticatie, endpoints en foutcodes.",
+      "url": "https://sterima.sharepoint.com/sites/tech/docs/api-handleiding",
+      "last_modified": "2026-03-01"
+    },
+    {
+      "id": "doc-002",
+      "name": "Serverinfrastructuur Overzicht 2026.pdf",
+      "summary": "Overzicht van alle productieservers, load balancers en database clusters. Inclusief contactpersonen per component.",
+      "url": "https://sterima.sharepoint.com/sites/tech/docs/infra-2026",
+      "last_modified": "2026-01-15"
+    },
+    {
+      "id": "doc-003",
+      "name": "Incident Response Playbook.docx",
+      "summary": "Procedures voor het afhandelen van productie-incidenten. P1 escalatie, communicatietemplate en rollback instructies.",
+      "url": "https://sterima.sharepoint.com/sites/tech/docs/incident-playbook",
+      "last_modified": "2026-02-10"
+    }
+  ]
+}
