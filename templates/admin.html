@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pollet AI — Admin</title>
+  <title>Helpdesk — Admin</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
@@ -463,6 +463,21 @@
         </div>
       </div>
 
+      <!-- Selectie prompt -->
+      <div class="card" style="margin-top:20px;">
+        <div class="card-title">
+          <span class="card-title-dot"></span>
+          Selectievraag wizard
+        </div>
+        <div class="prompt-group" style="margin-bottom:0;">
+          <label class="prompt-label" for="prompt-selectie">Eerste vraag bij ticketaanmaak (selectie.md)</label>
+          <textarea id="prompt-selectie" class="prompt-textarea" rows="3" id="prompt-selectie">Laden...</textarea>
+        </div>
+        <div class="save-row">
+          <button class="save-btn" id="save-selectie-btn" onclick="saveSelectie()">Opslaan</button>
+          <span class="save-status" id="save-selectie-status"></span>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -502,6 +517,39 @@
 </div>
 
 <script>
+// Load selectie.md on page load
+fetch('/api/selectie').then(r => r.text()).then(t => {
+  document.getElementById('prompt-selectie').value = t;
+}).catch(() => {});
+
+async function saveSelectie() {
+  const btn = document.getElementById('save-selectie-btn');
+  const status = document.getElementById('save-selectie-status');
+  const content = document.getElementById('prompt-selectie').value.trim();
+  if (!content) {
+    status.textContent = 'Veld mag niet leeg zijn.';
+    status.className = 'save-status visible err';
+    return;
+  }
+  btn.disabled = true;
+  try {
+    const res = await fetch('/admin/selectie/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content })
+    });
+    const data = await res.json();
+    status.textContent = data.ok ? 'Opgeslagen.' : (data.error || 'Mislukt.');
+    status.className = 'save-status visible ' + (data.ok ? 'ok' : 'err');
+    if (data.ok) setTimeout(() => { status.className = 'save-status'; }, 3000);
+  } catch (e) {
+    status.textContent = 'Netwerkfout.';
+    status.className = 'save-status visible err';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 async function savePrompts() {
   const btn = document.getElementById('save-btn');
   const status = document.getElementById('save-status');

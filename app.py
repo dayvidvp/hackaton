@@ -171,6 +171,31 @@ def save_prompts():
     return jsonify({"ok": True})
 
 
+def _selectie_path() -> Path:
+    return Path(__file__).parent / "docs" / "selectie.md"
+
+
+@app.route("/api/selectie")
+def api_selectie():
+    if "user" not in session:
+        return jsonify({"error": "Niet ingelogd"}), 401
+    path = _selectie_path()
+    text = path.read_text(encoding="utf-8").strip() if path.exists() else "Voor welke afdeling wil je een ticket aanmaken?"
+    return text, 200, {"Content-Type": "text/plain; charset=utf-8"}
+
+
+@app.route("/admin/selectie/save", methods=["POST"])
+def save_selectie():
+    if "user" not in session or session["user"].get("role") != "admin":
+        return jsonify({"ok": False, "error": "Niet toegestaan"}), 403
+    data = request.get_json()
+    content = (data.get("content") or "").strip()
+    if not content:
+        return jsonify({"ok": False, "error": "Inhoud mag niet leeg zijn"}), 400
+    _selectie_path().write_text(content, encoding="utf-8")
+    return jsonify({"ok": True})
+
+
 def _departments_dir() -> Path:
     return Path(__file__).parent / "docs" / "departments"
 
