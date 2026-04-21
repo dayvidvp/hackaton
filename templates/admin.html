@@ -4,24 +4,60 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Helpdesk — Admin</title>
+  <script>
+    (function () {
+      const t = localStorage.getItem('theme');
+      if (t === 'light') document.documentElement.setAttribute('data-theme', 'light');
+    })();
+  </script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    :root {
+      --bg-base:         #0f1117;
+      --bg-surface:      #161b27;
+      --bg-surface-2:    #1e2535;
+      --bg-surface-3:    #1a2030;
+      --bg-surface-hover:#252f40;
+      --border:          #1e2535;
+      --border-2:        #2d3748;
+      --text-primary:    #f1f5f9;
+      --text-secondary:  #e2e8f0;
+      --text-muted:      #cbd5e1;
+      --text-subtle:     #94a3b8;
+      --text-faint:      #64748b;
+    }
+
+    [data-theme="light"] {
+      --bg-base:         #f1f5f9;
+      --bg-surface:      #ffffff;
+      --bg-surface-2:    #f1f5f9;
+      --bg-surface-3:    #e8edf5;
+      --bg-surface-hover:#e2e8f0;
+      --border:          #e2e8f0;
+      --border-2:        #cbd5e1;
+      --text-primary:    #0f172a;
+      --text-secondary:  #1e293b;
+      --text-muted:      #334155;
+      --text-subtle:     #475569;
+      --text-faint:      #94a3b8;
+    }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      background: #0f1117;
+      background: var(--bg-base);
       min-height: 100vh;
-      color: #e2e8f0;
+      color: var(--text-secondary);
       display: flex;
       flex-direction: column;
     }
 
     /* ── HEADER ── */
     header {
-      background: #161b27;
-      border-bottom: 1px solid #1e2535;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
       padding: 0 28px;
       height: 60px;
       display: flex;
@@ -47,7 +83,7 @@
     .logo h1 {
       font-size: 1.1rem;
       font-weight: 600;
-      color: #f1f5f9;
+      color: var(--text-primary);
       letter-spacing: -0.02em;
     }
 
@@ -65,9 +101,9 @@
     }
 
     .back-btn {
-      background: #1e2535;
-      border: 1px solid #2d3748;
-      color: #94a3b8;
+      background: var(--bg-surface-2);
+      border: 1px solid var(--border-2);
+      color: var(--text-subtle);
       padding: 5px 14px;
       border-radius: 8px;
       cursor: pointer;
@@ -80,7 +116,7 @@
       align-items: center;
       gap: 6px;
     }
-    .back-btn:hover { background: #252f40; color: #cbd5e1; }
+    .back-btn:hover { background: var(--bg-surface-hover); color: var(--text-muted); }
 
     .user-avatar {
       width: 30px; height: 30px;
@@ -91,7 +127,20 @@
       flex-shrink: 0;
     }
 
-    .user-name { color: #cbd5e1; font-weight: 500; font-size: 0.82rem; }
+    .user-name { color: var(--text-muted); font-weight: 500; font-size: 0.82rem; }
+
+    .theme-toggle-btn {
+      background: var(--bg-surface-2);
+      border: 1px solid var(--border-2);
+      color: var(--text-subtle);
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+      flex-shrink: 0;
+    }
+    .theme-toggle-btn:hover { background: var(--bg-surface-hover); color: var(--text-muted); }
 
     /* ── MAIN CONTENT ── */
     .page-content {
@@ -105,7 +154,7 @@
     .page-title {
       font-size: 1.25rem;
       font-weight: 700;
-      color: #f1f5f9;
+      color: var(--text-primary);
       margin-bottom: 28px;
       letter-spacing: -0.02em;
     }
@@ -124,8 +173,8 @@
 
     /* ── CARDS ── */
     .card {
-      background: #161b27;
-      border: 1px solid #1e2535;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
       border-radius: 14px;
       padding: 24px;
     }
@@ -133,7 +182,7 @@
     .card-title {
       font-size: 0.95rem;
       font-weight: 600;
-      color: #f1f5f9;
+      color: var(--text-primary);
       margin-bottom: 18px;
       display: flex;
       align-items: center;
@@ -156,30 +205,25 @@
 
     .users-table th {
       text-align: left;
-      color: #475569;
+      color: var(--text-faint);
       font-weight: 500;
       font-size: 0.75rem;
       text-transform: uppercase;
       letter-spacing: 0.05em;
       padding: 0 0 10px 0;
-      border-bottom: 1px solid #1e2535;
+      border-bottom: 1px solid var(--border);
     }
 
     .users-table td {
       padding: 11px 0;
-      border-bottom: 1px solid #1a1f2e;
-      color: #cbd5e1;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-muted);
       vertical-align: middle;
     }
 
     .users-table tr:last-child td { border-bottom: none; }
-
-    .users-table td.name { font-weight: 500; color: #e2e8f0; }
-
-    .users-table td.email {
-      color: #64748b;
-      font-size: 0.8rem;
-    }
+    .users-table td.name { font-weight: 500; color: var(--text-secondary); }
+    .users-table td.email { color: var(--text-faint); font-size: 0.8rem; }
 
     .role-badge {
       padding: 2px 9px;
@@ -188,21 +232,18 @@
       font-weight: 500;
       display: inline-block;
     }
-    .role-badge.admin { background: #1e3a5f; color: #60a5fa; }
+    .role-badge.admin   { background: #1e3a5f; color: #60a5fa; }
     .role-badge.beperkt { background: #2d1f0e; color: #fb923c; }
 
     /* ── PROMPT EDITOR ── */
-    .prompt-group {
-      margin-bottom: 20px;
-    }
-
+    .prompt-group { margin-bottom: 20px; }
     .prompt-group:last-of-type { margin-bottom: 0; }
 
     .prompt-label {
       display: block;
       font-size: 0.78rem;
       font-weight: 600;
-      color: #94a3b8;
+      color: var(--text-subtle);
       text-transform: uppercase;
       letter-spacing: 0.05em;
       margin-bottom: 8px;
@@ -210,10 +251,10 @@
 
     .prompt-textarea {
       width: 100%;
-      background: #0f1117;
-      border: 1px solid #2d3748;
+      background: var(--bg-base);
+      border: 1px solid var(--border-2);
       border-radius: 10px;
-      color: #cbd5e1;
+      color: var(--text-muted);
       font-family: 'Inter', monospace;
       font-size: 0.82rem;
       line-height: 1.6;
@@ -223,7 +264,6 @@
       transition: border-color 0.2s;
       outline: none;
     }
-
     .prompt-textarea:focus { border-color: #6366f1; }
 
     .save-row {
@@ -254,7 +294,7 @@
       transition: opacity 0.3s;
     }
     .save-status.visible { opacity: 1; }
-    .save-status.ok { color: #34d399; }
+    .save-status.ok  { color: #34d399; }
     .save-status.err { color: #f87171; }
 
     /* ── TABS ── */
@@ -262,7 +302,7 @@
       display: flex;
       gap: 4px;
       margin-bottom: 24px;
-      border-bottom: 1px solid #1e2535;
+      border-bottom: 1px solid var(--border);
       padding-bottom: 0;
     }
 
@@ -270,7 +310,7 @@
       background: transparent;
       border: none;
       border-bottom: 2px solid transparent;
-      color: #64748b;
+      color: var(--text-faint);
       padding: 8px 18px 10px;
       font-size: 0.88rem;
       font-weight: 500;
@@ -279,7 +319,7 @@
       transition: all 0.15s;
       margin-bottom: -1px;
     }
-    .tab-btn:hover { color: #cbd5e1; }
+    .tab-btn:hover { color: var(--text-muted); }
     .tab-btn.active { color: #818cf8; border-bottom-color: #6366f1; }
 
     /* ── DEPARTMENTS ── */
@@ -289,20 +329,20 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      background: #0f1117;
-      border: 1px solid #1e2535;
+      background: var(--bg-base);
+      border: 1px solid var(--border);
       border-radius: 10px;
       padding: 12px 16px;
     }
 
-    .dept-row-name { font-weight: 500; color: #e2e8f0; font-size: 0.88rem; }
-    .dept-row-slug { font-size: 0.76rem; color: #64748b; margin-top: 2px; }
+    .dept-row-name  { font-weight: 500; color: var(--text-secondary); font-size: 0.88rem; }
+    .dept-row-slug  { font-size: 0.76rem; color: var(--text-faint); margin-top: 2px; }
     .dept-row-actions { display: flex; gap: 8px; }
 
     .dept-action-btn {
-      background: #1e2535;
-      border: 1px solid #2d3748;
-      color: #94a3b8;
+      background: var(--bg-surface-2);
+      border: 1px solid var(--border-2);
+      color: var(--text-subtle);
       padding: 4px 12px;
       border-radius: 6px;
       cursor: pointer;
@@ -310,12 +350,12 @@
       font-family: inherit;
       transition: all 0.15s;
     }
-    .dept-action-btn:hover { background: #252f40; color: #cbd5e1; }
+    .dept-action-btn:hover { background: var(--bg-surface-hover); color: var(--text-muted); }
     .dept-action-btn.danger { border-color: #7f1d1d; color: #f87171; }
     .dept-action-btn.danger:hover { background: #2d1515; }
 
     .dept-editor {
-      background: #0f1117;
+      background: var(--bg-base);
       border: 1px solid #6366f1;
       border-radius: 12px;
       padding: 18px;
@@ -329,17 +369,17 @@
       display: block;
       font-size: 0.78rem;
       font-weight: 600;
-      color: #94a3b8;
+      color: var(--text-subtle);
       text-transform: uppercase;
       letter-spacing: 0.05em;
       margin-bottom: 6px;
     }
     .dept-editor-input {
       width: 100%;
-      background: #161b27;
-      border: 1px solid #2d3748;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-2);
       border-radius: 8px;
-      color: #e2e8f0;
+      color: var(--text-secondary);
       font-family: inherit;
       font-size: 0.85rem;
       padding: 8px 12px;
@@ -347,12 +387,13 @@
       transition: border-color 0.2s;
     }
     .dept-editor-input:focus { border-color: #6366f1; }
+
     .dept-editor-textarea {
       width: 100%;
-      background: #161b27;
-      border: 1px solid #2d3748;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-2);
       border-radius: 8px;
-      color: #cbd5e1;
+      color: var(--text-muted);
       font-family: 'Inter', monospace;
       font-size: 0.82rem;
       line-height: 1.6;
@@ -363,13 +404,14 @@
       transition: border-color 0.2s;
     }
     .dept-editor-textarea:focus { border-color: #6366f1; }
+
     .dept-editor-error { color: #f87171; font-size: 0.8rem; margin-top: 6px; display: none; }
     .dept-editor-error.visible { display: block; }
 
     .add-dept-btn {
       background: transparent;
-      border: 1px dashed #2d3748;
-      color: #64748b;
+      border: 1px dashed var(--border-2);
+      color: var(--text-faint);
       padding: 10px;
       border-radius: 10px;
       cursor: pointer;
@@ -378,7 +420,7 @@
       width: 100%;
       transition: all 0.15s;
     }
-    .add-dept-btn:hover { border-color: #6366f1; color: #818cf8; background: #0f1117; }
+    .add-dept-btn:hover { border-color: #6366f1; color: #818cf8; background: var(--bg-base); }
   </style>
 </head>
 <body>
@@ -392,6 +434,7 @@
   <div class="header-right">
     <div class="user-avatar">{{ user.display_name[0] | upper }}</div>
     <span class="user-name">{{ user.display_name }}</span>
+    <button class="theme-toggle-btn" onclick="toggleTheme()" title="Schakel thema"></button>
     <a href="/" class="back-btn">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
         <polyline points="15 18 9 12 15 6"/>
@@ -438,7 +481,7 @@
         <div class="card-title">
           <span class="card-title-dot" style="background:#ef4444;"></span>
           Security prompt
-          <span style="font-size:0.72rem;color:#64748b;font-weight:400;margin-left:6px;">— wordt als eerste blok geladen, hoogste prioriteit</span>
+          <span style="font-size:0.72rem;color:var(--text-faint);font-weight:400;margin-left:6px;">— wordt als eerste blok geladen, hoogste prioriteit</span>
         </div>
         <div class="prompt-group" style="margin-bottom:0;">
           <textarea id="prompt-security" class="prompt-textarea" rows="10" style="border-color:#7f1d1d;">Laden...</textarea>
@@ -496,7 +539,7 @@
         </div>
         <div class="prompt-group" style="margin-bottom:0;">
           <label class="prompt-label" for="prompt-selectie">Eerste vraag bij ticketaanmaak (selectie.md)</label>
-          <textarea id="prompt-selectie" class="prompt-textarea" rows="3" id="prompt-selectie">Laden...</textarea>
+          <textarea id="prompt-selectie" class="prompt-textarea" rows="3">Laden...</textarea>
         </div>
         <div class="save-row">
           <button class="save-btn" id="save-selectie-btn" onclick="saveSelectie()">Opslaan</button>
@@ -505,8 +548,6 @@
       </div>
     </div>
   </div>
-
-
 </div>
 
 <script>
@@ -514,7 +555,6 @@ fetch('/api/security').then(r => r.text()).then(t => {
   document.getElementById('prompt-security').value = t;
 }).catch(() => {});
 
-// Load algemene_regels.md and selectie.md on page load
 fetch('/api/algemene_regels').then(r => r.text()).then(t => {
   document.getElementById('prompt-algemene-regels').value = t;
 }).catch(() => {});
@@ -647,9 +687,8 @@ function showStatus(msg, ok) {
   el.className = 'save-status visible ' + (ok ? 'ok' : 'err');
   if (ok) setTimeout(() => { el.className = 'save-status'; }, 3000);
 }
-
-
 </script>
 
+<script src="/static/theme.js"></script>
 </body>
 </html>
