@@ -1,0 +1,14 @@
+[
+  {
+    "email": "dayvid.van.parijs@sterima.be",
+    "display_name": "Dayvid Van Parijs",
+    "role": "support",
+    "jira_account": "dayvid.van.parijs"
+  },
+  {
+    "email": "support@sterima.be",
+    "display_name": "Support Team",
+    "role": "support",
+    "jira_account": "support.user"
+  }
+]

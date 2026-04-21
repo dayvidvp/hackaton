@@ -1,5 +1,6 @@
 import json, os, requests
 from pathlib import Path
+from tools.cache import ttl_cache
 
 
 def _adf_to_text(node) -> str:
@@ -18,7 +19,8 @@ def _jira_search(jql: str, fields: str, max_results: int = 10) -> list:
     resp = requests.post(
         f"{_jira_base()}/rest/api/3/search/jql",
         headers=_headers(), auth=_auth(),
-        json={"jql": jql, "maxResults": max_results, "fields": fields.split(",")}
+        json={"jql": jql, "maxResults": max_results, "fields": fields.split(",")},
+        verify=False
     )
     resp.raise_for_status()
     return resp.json().get("issues", [])
@@ -49,6 +51,7 @@ def _auth():
 def _headers():
     return {"Accept": "application/json", "Content-Type": "application/json"}
 
+@ttl_cache(seconds=60)
 def get_ticket(ticket_id: str) -> dict:
     if os.getenv("USE_MOCK_DATA", "false").lower() == "true":
         return {"id": ticket_id, "summary": "Mock ticket", "status": "Open", "description": "Mock beschrijving"}
@@ -78,6 +81,7 @@ def get_ticket(ticket_id: str) -> dict:
         "updated": f.get("updated", "")[:10],
     }
 
+@ttl_cache(seconds=30)
 def get_my_tickets(email: str, project: str = None) -> list:
     if os.getenv("USE_MOCK_DATA", "false").lower() == "true":
         return _mock_data()["open_tickets"]
@@ -97,12 +101,19 @@ def get_my_tickets(email: str, project: str = None) -> list:
         for i in issues
     ]
 
-def get_open_tickets(project: str = None) -> list:
+@ttl_cache(seconds=30)
+def get_open_tickets(project: str = None, query: str = None) -> list:
     if os.getenv("USE_MOCK_DATA", "false").lower() == "true":
-        return _mock_data()["open_tickets"]
+        tickets = _mock_data()["open_tickets"]
+        if query:
+            q = query.lower()
+            tickets = [t for t in tickets if q in t.get("summary", "").lower() or q in t.get("description", "").lower()]
+        return tickets
     jql = "status != Done ORDER BY created DESC"
+    if query:
+        jql = f'text ~ "{query}" AND status != Done ORDER BY created DESC'
     if project:
-        jql = f"project={project} AND {jql}"
+        jql = f"project={project} AND " + jql
     issues = _jira_search(jql, "summary,status,assignee,description")
     return [
         {
@@ -115,6 +126,7 @@ def get_open_tickets(project: str = None) -> list:
         for i in issues
     ]
 
+@ttl_cache(seconds=60)
 def search_jira(query: str, project: str = None, max_results: int = 10) -> list:
     if os.getenv("USE_MOCK_DATA", "false").lower() == "true":
         tickets = _mock_data()["resolved_tickets"]
@@ -138,6 +150,7 @@ def search_jira(query: str, project: str = None, max_results: int = 10) -> list:
         for i in issues
     ]
 
+@ttl_cache(seconds=120)
 def get_resolved_tickets(project: str = None, max_results: int = 20) -> list:
     if os.getenv("USE_MOCK_DATA", "false").lower() == "true":
         return _mock_data()["resolved_tickets"]
@@ -159,32 +172,51 @@ def get_resolved_tickets(project: str = None, max_results: int = 20) -> list:
         for i in issues
     ]
 
-def create_ticket(summary: str, project: str, description: str = "", request_type: str = "", requires_confirmation: bool = True) -> dict:
+def create_ticket(summary: str, project: str, description: str = "", request_type: str = "", reporter_email: str = "", reporter_location: str = "", requires_confirmation: bool = True) -> dict:
+    import logging
+    log = logging.getLogger(__name__)
+
     if os.getenv("USE_MOCK_DATA", "false").lower() == "true":
         return {"id": "PROJ-NEW", "summary": summary, "status": "Open", "request_type": request_type}
 
     service_desk_id = os.getenv("JIRA_SERVICE_DESK_ID", "")
     request_type_id = REQUEST_TYPE_MAP.get(request_type.lower().strip()) if request_type else None
 
+    log.info("create_ticket: project=%s service_desk_id=%s request_type=%r request_type_id=%s", project, service_desk_id, request_type, request_type_id)
+
     if service_desk_id and request_type_id:
+        request_fields = {"summary": summary}
+        company_field = os.getenv("JIRA_COMPANY_FIELD", "")
+        if reporter_location and company_field:
+            request_fields[company_field] = reporter_location
+
         payload = {
             "serviceDeskId": service_desk_id,
             "requestTypeId": request_type_id,
-            "requestFieldValues": {
-                "summary": summary,
-                "description": description,
-            }
+            "requestFieldValues": request_fields,
         }
+        if reporter_email:
+            payload["raiseOnBehalfOf"] = reporter_email
         resp = requests.post(
             f"{_jira_base()}/rest/servicedeskapi/request",
             headers=_headers(), auth=_auth(), json=payload, verify=False
         )
+        log.info("ServiceDesk API response: %s %s", resp.status_code, resp.text[:500])
         if resp.ok:
             data = resp.json()
-            return {"id": data["issueKey"], "summary": summary, "status": "Open", "request_type": request_type}
-        return {"success": False, "error": resp.json()}
+            issue_key = data["issueKey"]
+            if description:
+                desc_payload = {"body": {"type": "doc", "version": 1, "content": [{"type": "paragraph", "content": [{"type": "text", "text": description}]}]}}
+                desc_resp = requests.post(f"{_jira_base()}/rest/api/3/issue/{issue_key}/comment", headers=_headers(), auth=_auth(), json=desc_payload, verify=False)
+                log.info("Description comment response: %s", desc_resp.status_code)
+            from tools.cache import clear_all; clear_all()
+            return {"id": issue_key, "summary": summary, "status": "Open", "request_type": request_type}
+        error_body = resp.json()
+        log.error("ServiceDesk API error: %s", error_body)
+        return {"success": False, "error": error_body}
 
     # Fallback: regular API without request type
+    log.info("Fallback: regular Jira API (geen service_desk_id of request_type_id)")
     payload = {
         "fields": {
             "project": {"key": project},
@@ -194,9 +226,13 @@ def create_ticket(summary: str, project: str, description: str = "", request_typ
         }
     }
     resp = requests.post(f"{_jira_base()}/rest/api/3/issue", headers=_headers(), auth=_auth(), json=payload, verify=False)
+    log.info("Regular API response: %s %s", resp.status_code, resp.text[:500])
     if not resp.ok:
-        return {"success": False, "error": resp.json()}
+        error_body = resp.json()
+        log.error("Regular API error: %s", error_body)
+        return {"success": False, "error": error_body}
     data = resp.json()
+    from tools.cache import clear_all; clear_all()
     return {"id": data["key"], "summary": summary, "status": "Open"}
 
 def assign_ticket(ticket_id: str, assignee: str, requires_confirmation: bool = True) -> dict:
@@ -208,6 +244,7 @@ def assign_ticket(ticket_id: str, assignee: str, requires_confirmation: bool = T
         json={"accountId": assignee}
     )
     resp.raise_for_status()
+    from tools.cache import clear_all; clear_all()
     return {"success": True, "ticket_id": ticket_id, "assignee": assignee}
 
 def add_comment(ticket_id: str, comment: str, requires_confirmation: bool = True) -> dict:

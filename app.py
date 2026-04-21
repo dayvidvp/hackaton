@@ -5,13 +5,38 @@ from dotenv import load_dotenv
 from auth import get_current_user, get_all_users
 from claude_client import ClaudeClient, PROMPTS
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
 load_dotenv(Path(__file__).parent / ".env", override=True)
 
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-secret-change-me")
+
+# Server-side opslag: berichten en pending actions buiten de cookie
+_message_store: dict[str, list] = {}
+_pending_store: dict[str, dict] = {}
+
+def _sid() -> str:
+    if "sid" not in session:
+        session["sid"] = str(uuid.uuid4())
+    return session["sid"]
+
+def _get_messages() -> list:
+    return _message_store.get(_sid(), [])
+
+def _set_messages(msgs: list):
+    _message_store[_sid()] = msgs
+
+def _get_pending() -> dict | None:
+    return _pending_store.get(_sid())
+
+def _set_pending(action: dict | None):
+    sid = _sid()
+    if action is None:
+        _pending_store.pop(sid, None)
+    else:
+        _pending_store[sid] = action
 
 claude = ClaudeClient()
 log.debug("API key loaded: %s", bool(os.getenv("ANTHROPIC_API_KEY")))
@@ -21,16 +46,27 @@ log.debug("API key loaded: %s", bool(os.getenv("ANTHROPIC_API_KEY")))
 def index():
     if "user" not in session:
         return redirect(url_for("login"))
-    return render_template("chat.html", user=session["user"], all_users=get_all_users())
+    jira_base = os.getenv("JIRA_BASE_URL", "").rstrip("/")
+    return render_template("chat.html", user=session["user"], all_users=get_all_users(), jira_base_url=jira_base)
 
 
 @app.route("/login")
 def login():
-    user = get_current_user()
-    session["user"] = user
-    session["messages"] = []
-    return redirect(url_for("index"))
+    return render_template("login.html", all_users=get_all_users())
 
+
+@app.route("/do-login", methods=["POST"])
+def do_login():
+    email = request.get_json().get("email", "").lower()
+    user = next((u for u in get_all_users() if u["email"] == email), None)
+    if not user:
+        return jsonify({"ok": False}), 404
+    session.permanent = False
+    session["user"] = user
+    _set_messages([])
+    _set_pending(None)
+    session.modified = True
+    return jsonify({"ok": True})
 
 
 @app.route("/switch-user", methods=["POST"])
@@ -40,7 +76,8 @@ def switch_user():
     if not user:
         return jsonify({"ok": False}), 404
     session["user"] = user
-    session["messages"] = []
+    _set_messages([])
+    _set_pending(None)
     session.modified = True
     return jsonify({"ok": True})
 
@@ -55,39 +92,36 @@ def chat():
     if not user_message:
         return jsonify({"error": "Leeg bericht"}), 400
 
-    if "messages" not in session:
-        session["messages"] = []
-
-    session["messages"].append({"role": "user", "content": user_message})
-    session.modified = True
+    messages = _get_messages()
+    messages.append({"role": "user", "content": user_message})
+    _set_messages(messages)
 
     try:
         user_role = session["user"].get("role", "beperkt")
         log.debug("USER: %s ROLE: %s", session["user"].get("email"), user_role)
-        result = claude.chat(messages=session["messages"], role=user_role, user=session["user"])
+        result = claude.chat(messages=messages, role=user_role, user=session["user"])
     except Exception as e:
         log.error("Claude chat error: %s\n%s", e, traceback.format_exc())
         return jsonify({"error": str(e)}), 500
 
     if result["type"] == "confirmation_required":
         action_id = str(uuid.uuid4())
-        session["pending_action"] = {
+        _set_pending({
             "id": action_id,
             "tool_name": result["tool_name"],
             "tool_id": result["tool_id"],
             "tool_input": result["tool_input"],
             "assistant_content": result["assistant_content"],
             "messages_at_confirmation": result["messages_at_confirmation"],
-        }
-        session.modified = True
+        })
         return jsonify({
             "type": "confirmation_required",
             "action_id": action_id,
             "message": result["message"]
         })
 
-    session["messages"].append({"role": "assistant", "content": result["text"]})
-    session.modified = True
+    messages.append({"role": "assistant", "content": result["text"]})
+    _set_messages(messages)
     return jsonify({"type": "text", "message": result["text"]})
 
 
@@ -100,31 +134,59 @@ def confirm():
     action_id = data.get("action_id")
     confirmed = data.get("confirmed", False)
 
-    pending = session.get("pending_action")
+    pending = _get_pending()
     if not pending or pending["id"] != action_id:
         return jsonify({"error": "Geen geldige actie"}), 400
 
-    session.pop("pending_action", None)
-    session.modified = True
+    _set_pending(None)
 
     if not confirmed:
         return jsonify({"type": "text", "message": "Actie geannuleerd."})
 
-    result = claude.execute_confirmed_tool(
-        tool_name=pending["tool_name"],
-        tool_id=pending["tool_id"],
-        tool_input=pending["tool_input"],
-        messages_at_confirmation=pending["messages_at_confirmation"],
-        assistant_content=pending["assistant_content"],
-        role=session["user"].get("role", "beperkt"),
-        user=session["user"]
-    )
+    try:
+        result = claude.execute_confirmed_tool(
+            tool_name=pending["tool_name"],
+            tool_id=pending["tool_id"],
+            tool_input=pending["tool_input"],
+            messages_at_confirmation=pending["messages_at_confirmation"],
+            assistant_content=pending["assistant_content"],
+            role=session["user"].get("role", "beperkt"),
+            user=session["user"]
+        )
+    except Exception as e:
+        log.error("execute_confirmed_tool error: %s\n%s", e, traceback.format_exc())
+        return jsonify({"error": str(e)}), 500
+
+    log.info("confirm result type=%s for tool=%s", result.get("type"), pending["tool_name"])
+
+    if result.get("type") == "confirmation_required":
+        new_action_id = str(uuid.uuid4())
+        _set_pending({
+            "id": new_action_id,
+            "tool_name": result["tool_name"],
+            "tool_id": result["tool_id"],
+            "tool_input": result["tool_input"],
+            "assistant_content": result["assistant_content"],
+            "messages_at_confirmation": result["messages_at_confirmation"],
+        })
+        if pending["tool_name"] == "create_ticket":
+            _set_messages([])
+        return jsonify({
+            "type": "confirmation_required",
+            "action_id": new_action_id,
+            "message": result["message"]
+        })
+
+    response_text = result.get("text") or "Actie uitgevoerd."
+    log.info("confirm response for %s: %s", pending["tool_name"], response_text[:200])
+
     if pending["tool_name"] == "create_ticket":
-        session["messages"] = []
+        _set_messages([])
     else:
-        session["messages"].append({"role": "assistant", "content": result.get("text", "Actie uitgevoerd.")})
-    session.modified = True
-    return jsonify({"type": "text", "message": result.get("text", "Actie uitgevoerd.")})
+        msgs = _get_messages()
+        msgs.append({"role": "assistant", "content": response_text})
+        _set_messages(msgs)
+    return jsonify({"type": "text", "message": response_text})
 
 
 @app.route("/admin")
@@ -188,6 +250,8 @@ def save_algemene_regels():
     if not content:
         return jsonify({"ok": False, "error": "Inhoud mag niet leeg zijn"}), 400
     _algemene_regels_path().write_text(content, encoding="utf-8")
+    import claude_client
+    claude_client.invalidate_cache("algemene_regels", content)
     return jsonify({"ok": True})
 
 
@@ -213,6 +277,35 @@ def save_selectie():
     if not content:
         return jsonify({"ok": False, "error": "Inhoud mag niet leeg zijn"}), 400
     _selectie_path().write_text(content, encoding="utf-8")
+    import claude_client
+    claude_client.invalidate_cache("selectie", content)
+    return jsonify({"ok": True})
+
+
+def _security_path() -> Path:
+    return Path(__file__).parent / "docs" / "security.md"
+
+
+@app.route("/api/security")
+def api_security():
+    if "user" not in session or session["user"].get("role") != "admin":
+        return jsonify({"error": "Niet toegestaan"}), 403
+    path = _security_path()
+    text = path.read_text(encoding="utf-8").strip() if path.exists() else ""
+    return text, 200, {"Content-Type": "text/plain; charset=utf-8"}
+
+
+@app.route("/admin/security/save", methods=["POST"])
+def save_security():
+    if "user" not in session or session["user"].get("role") != "admin":
+        return jsonify({"ok": False, "error": "Niet toegestaan"}), 403
+    data = request.get_json()
+    content = (data.get("content") or "").strip()
+    if not content:
+        return jsonify({"ok": False, "error": "Inhoud mag niet leeg zijn"}), 400
+    _security_path().write_text(content, encoding="utf-8")
+    import claude_client
+    claude_client.invalidate_cache("security", content)
     return jsonify({"ok": True})
 
 
@@ -277,6 +370,33 @@ def delete_department(slug):
         return jsonify({"ok": False, "error": "Niet gevonden"}), 404
     path.unlink()
     return jsonify({"ok": True})
+
+
+@app.route("/api/history")
+def api_history():
+    if "user" not in session:
+        return jsonify([])
+    msgs = [m for m in _get_messages() if isinstance(m.get("content"), str)]
+    return jsonify([{"role": m["role"], "content": m["content"]} for m in msgs])
+
+
+@app.route("/new-chat", methods=["POST"])
+def new_chat():
+    if "user" not in session:
+        return jsonify({"ok": False}), 401
+    _set_messages([])
+    _set_pending(None)
+    return jsonify({"ok": True})
+
+
+@app.route("/logout")
+def logout():
+    sid = session.get("sid")
+    if sid:
+        _message_store.pop(sid, None)
+        _pending_store.pop(sid, None)
+    session.clear()
+    return redirect(url_for("login"))
 
 
 if __name__ == "__main__":

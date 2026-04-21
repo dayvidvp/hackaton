@@ -1,5 +1,6 @@
-import json, os, requests
+import json, os, re, requests
 from pathlib import Path
+from tools.cache import ttl_cache
 
 def _base(): return os.getenv("CONFLUENCE_BASE_URL", "")
 def _auth(): return (os.getenv("JIRA_EMAIL", ""), os.getenv("JIRA_API_TOKEN", ""))
@@ -9,6 +10,7 @@ def _mock_data():
     path = Path(__file__).parent.parent / "fixtures" / "confluence_mock.json"
     return json.loads(path.read_text())
 
+@ttl_cache(seconds=120)
 def search_confluence(query: str) -> list:
     if os.getenv("USE_MOCK_DATA", "false").lower() == "true":
         pages = _mock_data()["pages"]
@@ -26,7 +28,7 @@ def search_confluence(query: str) -> list:
         {
             "id": r["id"],
             "title": r["title"],
-            "body": r.get("body", {}).get("storage", {}).get("value", "")[:500],
+            "body": re.sub(r"<[^>]+>", " ", r.get("body", {}).get("storage", {}).get("value", ""))[:300].strip(),
             "url": base + r.get("_links", {}).get("webui", "")
         }
         for r in results

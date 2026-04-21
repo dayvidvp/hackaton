@@ -1,11 +1,13 @@
 from tools.jira_tools import (
-    get_open_tickets, get_resolved_tickets, search_jira, create_ticket,
-    assign_ticket, add_comment, update_status
+    get_open_tickets, get_resolved_tickets, get_my_tickets, get_ticket, search_jira,
+    create_ticket, assign_ticket, add_comment, update_status
 )
 from tools.confluence_tools import search_confluence, create_confluence_page
 
 TOOL_FUNCTIONS = {
     "get_open_tickets": get_open_tickets,
+    "get_my_tickets": get_my_tickets,
+    "get_ticket": get_ticket,
     "get_resolved_tickets": get_resolved_tickets,
     "search_jira": search_jira,
     "create_ticket": create_ticket,

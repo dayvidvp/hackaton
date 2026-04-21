@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pollet AI</title>
+  <title>Helpdesk AI</title>
+  <link rel="icon" type="image/svg+xml" href="/static/logo.svg">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
@@ -36,12 +37,9 @@
       gap: 10px;
     }
 
-    .logo-icon {
-      width: 32px; height: 32px;
-      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    .logo img {
+      width: 36px; height: 36px;
       border-radius: 8px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 16px; font-weight: 700; color: white;
     }
 
     .logo h1 {
@@ -79,7 +77,7 @@
     .role-badge.admin { background: #1e3a5f; color: #60a5fa; }
     .role-badge.beperkt { background: #2d1f0e; color: #fb923c; }
 
-    .switch-btn {
+    .switch-btn, .logout-btn, .new-chat-btn {
       background: #1e2535;
       border: 1px solid #2d3748;
       color: #94a3b8;
@@ -90,7 +88,9 @@
       font-family: inherit;
       transition: all 0.15s;
     }
-    .switch-btn:hover { background: #252f40; color: #cbd5e1; }
+    .switch-btn:hover, .new-chat-btn:hover { background: #252f40; color: #cbd5e1; }
+    .logout-btn { color: #f87171; border-color: #7f1d1d; }
+    .logout-btn:hover { background: #2d1515; color: #fca5a5; }
 
     .admin-btn {
       background: linear-gradient(135deg, #6366f1, #7c3aed);
@@ -167,9 +167,28 @@
       border: 1px solid #1e2535;
     }
 
-    .message.assistant ul { margin: 8px 0 0 18px; }
+    .message.assistant ul, .message.assistant ol { margin: 8px 0 4px 18px; }
     .message.assistant li { margin: 5px 0; color: #94a3b8; }
     .message.assistant strong { color: #e2e8f0; }
+    .message.assistant p { margin: 6px 0; }
+    .message.assistant h1, .message.assistant h2, .message.assistant h3 {
+      color: #f1f5f9; margin: 10px 0 6px; font-size: 0.95rem;
+    }
+    .message.assistant hr { border: none; border-top: 1px solid #2d3748; margin: 10px 0; }
+    .message.assistant a { color: #818cf8; text-decoration: underline; }
+    .message.assistant a:hover { color: #a5b4fc; }
+    .message.assistant table {
+      border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 0.83rem;
+    }
+    .message.assistant th {
+      background: #1e2535; color: #94a3b8; font-weight: 600;
+      padding: 7px 12px; text-align: left; border-bottom: 1px solid #2d3748;
+    }
+    .message.assistant td {
+      padding: 7px 12px; border-bottom: 1px solid #1e2535; color: #cbd5e1;
+    }
+    .message.assistant tr:last-child td { border-bottom: none; }
+    .message.assistant tr:hover td { background: #1a2030; }
 
     .confirmation-card {
       background: #1a1f2e;
@@ -274,6 +293,11 @@
       color: #e2e8f0;
       font-family: inherit;
       padding: 4px 0;
+      resize: none;
+      overflow-y: hidden;
+      line-height: 1.5;
+      max-height: 140px;
+      overflow-y: auto;
     }
 
     #message-input::placeholder { color: #475569; }
@@ -374,7 +398,7 @@
 <div class="error-wrapper">
   <div class="error-card">
     <div style="font-size:2rem;margin-bottom:16px;">🔒</div>
-    <h2>Pollet AI</h2>
+    <h2>Helpdesk AI</h2>
     <p class="error-msg">{{ error }}</p>
     <p style="color:#475569;font-size:0.82rem;">Contacteer de beheerder om toegang te krijgen.</p>
   </div>
@@ -383,8 +407,8 @@
 {% else %}
 <header>
   <div class="logo">
-    <div class="logo-icon">P</div>
-    <h1>Pollet AI</h1>
+    <img src="/static/logo.svg" alt="Helpdesk AI">
+    <h1>Helpdesk AI</h1>
   </div>
   <div class="user-info">
     <button class="new-ticket-btn" onclick="startWizard()">
@@ -397,9 +421,9 @@
     {% if user.role == "admin" %}
     <a href="/admin" class="admin-btn">Admin</a>
     {% endif %}
-    <button class="switch-btn" onclick="document.getElementById('user-modal').style.display='flex'">
-      Wissel gebruiker
-    </button>
+    <button class="new-chat-btn" onclick="newChat()">Nieuw gesprek</button>
+    <button class="switch-btn" onclick="document.getElementById('user-modal').style.display='flex'">Wissel gebruiker</button>
+    <a href="/logout" class="logout-btn" style="padding:5px 12px;border-radius:8px;border:1px solid #7f1d1d;color:#f87171;font-size:0.78rem;text-decoration:none;transition:all 0.15s;" onmouseover="this.style.background='#2d1515'" onmouseout="this.style.background='transparent'">Uitloggen</a>
   </div>
 </header>
 
@@ -427,7 +451,7 @@
 
 <div class="input-wrapper">
   <div class="input-area">
-    <input type="text" id="message-input" placeholder="Stel een vraag of beschrijf een probleem…" autocomplete="off">
+    <textarea id="message-input" placeholder="Stel een vraag of beschrijf een probleem…" autocomplete="off" rows="1"></textarea>
     <button id="send-btn" title="Verstuur">
       <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
     </button>
@@ -435,13 +459,13 @@
 </div>
 
 <script>
-function switchUser(email) {
-  fetch('/switch-user', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({email})})
-    .then(r => r.json()).then(d => { if(d.ok) location.reload(); });
-}
 document.getElementById('user-modal').addEventListener('click', function(e) {
   if (e.target === this) this.style.display = 'none';
 });
+</script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+  window.JIRA_BASE_URL = "{{ jira_base_url }}";
 </script>
 <script src="/static/chat.js"></script>
 {% endif %}

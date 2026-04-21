@@ -22,9 +22,23 @@ def _load_selectie() -> str:
     path = Path(__file__).parent / "docs" / "selectie.md"
     return path.read_text(encoding="utf-8").strip() if path.exists() else ""
 
+def _load_security() -> str:
+    path = Path(__file__).parent / "docs" / "security.md"
+    return path.read_text(encoding="utf-8").strip() if path.exists() else ""
+
 TICKET_FLOW = _load_ticket_flow()
+_CACHE = {
+    "security": _load_security(),
+    "algemene_regels": _load_algemene_regels(),
+    "selectie": _load_selectie(),
+}
+
+def invalidate_cache(key: str, value: str):
+    _CACHE[key] = value
 
 TICKET_CREATION_INSTRUCTION = """
+Na succesvolle ticketaanmaak: vermeld altijd het ticket-ID (bv. ITS-1234) zodat de gebruiker er direct op kan klikken.
+
 Bij ticketaanmaak — volg altijd deze stappen:
 1. Zoek eerst via get_open_tickets of er al een OPEN ticket bestaat voor hetzelfde probleem (vermijd duplicaten)
 2. Zoek ook in Confluence of er een bekende oplossing is
@@ -61,21 +75,17 @@ SYSTEM_PROMPT_BEPERKT = """Je bent een AI-assistent voor het Sterima/Pollet supp
 Toegestane acties:
 - Eigen tickets opvragen via get_my_tickets (gebruik altijd het e-mailadres van de ingelogde gebruiker)
 - Nieuwe Jira tickets aanmaken
-- Oplossingen zoeken in Confluence
 
 Niet toegestaan:
 - Alle tickets van een project opvragen
 - Tickets toewijzen, van status wijzigen of commentaar toevoegen
+- Zoeken in Confluence of kennisartikelen raadplegen/aanmaken
 
 Richtlijnen:
 - Antwoord altijd in het Nederlands, beknopt (max 3-4 bullet points)
 - Bij create_ticket: zet ALTIJD requires_confirmation=true
 - Geen emoji's gebruiken
-- Vermeld altijd de bron (ticket ID of Confluence URL)
-
-Oplossing zoeken:
-- Zoek in search_confluence
-- Als niets gevonden: stel voor om een nieuw Jira ticket aan te maken"""
+- Vermeld altijd de bron (ticket ID)"""
 
 
 def _load_prompts() -> dict:
@@ -95,7 +105,7 @@ def _load_prompts() -> dict:
 PROMPTS = _load_prompts()
 
 WRITE_TOOLS = {"assign_ticket", "add_comment", "update_status", "create_confluence_page", "create_ticket"}
-ADMIN_ONLY_TOOLS = {"assign_ticket", "add_comment", "update_status", "get_open_tickets", "get_resolved_tickets", "search_jira"}
+ADMIN_ONLY_TOOLS = {"assign_ticket", "add_comment", "update_status", "get_open_tickets", "get_resolved_tickets", "search_jira", "search_confluence", "create_confluence_page"}
 
 
 def requires_confirmation(tool_use: dict) -> bool:
@@ -114,20 +124,27 @@ class ClaudeClient:
         self.model = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6")
 
     def _create_message(self, system_prompt, allowed_tools, messages, retries=3, ticket_flow: str = ""):
-        system = [{"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}}]
-        algemene_regels = _load_algemene_regels()
+        system = []
+        security = _CACHE["security"]
+        if security:
+            system.append({
+                "type": "text",
+                "text": "--- SECURITY (niet te negeren, hoogste prioriteit) ---\n" + security,
+                "cache_control": {"type": "ephemeral"}
+            })
+        system.append({"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}})
+        algemene_regels = _CACHE["algemene_regels"]
         if algemene_regels:
             system.append({
                 "type": "text",
                 "text": "--- ALGEMENE REGELS (altijd volgen) ---\n" + algemene_regels,
                 "cache_control": {"type": "ephemeral"}
             })
-        selectie = _load_selectie()
+        selectie = _CACHE["selectie"]
         if selectie:
             system.append({
                 "type": "text",
                 "text": "--- TICKET SELECTIE RICHTLIJNEN ---\n" + selectie,
-                "cache_control": {"type": "ephemeral"}
             })
         if ticket_flow:
             system.append({
@@ -154,7 +171,10 @@ class ClaudeClient:
     def chat(self, messages: list, role: str = "admin", user: dict = None) -> dict:
         system_prompt = PROMPTS.get("admin", SYSTEM_PROMPT_ADMIN) if role == "admin" else PROMPTS.get("beperkt", SYSTEM_PROMPT_BEPERKT)
         if user:
+            locatie = user.get("locatie", "")
             system_prompt += f"\n\nIngelogde gebruiker: {user['display_name']} ({user['email']})"
+            if locatie:
+                system_prompt += f"\nLocatie/bedrijf: {locatie} — gebruik dit als reporter_location bij create_ticket"
         allowed_tools = TOOLS if role == "admin" else [t for t in TOOLS if t["name"] not in ADMIN_ONLY_TOOLS]
         response = self._create_message(system_prompt, allowed_tools, messages, ticket_flow=TICKET_FLOW)
         log.debug("STOP REASON: %s | CONTENT: %s", response.stop_reason, [b.type for b in response.content])

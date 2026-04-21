@@ -1,11 +1,12 @@
 TOOLS = [
     {
         "name": "get_open_tickets",
-        "description": "Haal open Jira tickets op voor een project. Geeft een lijst van tickets met id, summary, status en assignee.",
+        "description": "Haal open Jira tickets op. Gebruik 'query' om te zoeken op tekst in titel of beschrijving. Gebruik 'project' om te filteren op project. Zonder query worden alle open tickets opgehaald.",
         "input_schema": {
             "type": "object",
             "properties": {
-                "project": {"type": "string", "description": "Jira project key, bijv. PROJ"}
+                "project": {"type": "string", "description": "Jira project key, bijv. ITS"},
+                "query": {"type": "string", "description": "Zoekterm om te filteren op tekst in titel of beschrijving, bijv. 'SMT printer' of 'VPN toegang'"}
             },
             "required": []
         }
@@ -55,6 +56,8 @@ TOOLS = [
                 "description": {"type": "string", "description": "Uitgebreide beschrijving"},
                 "project": {"type": "string", "description": "Jira project key"},
                 "request_type": {"type": "string", "description": "Aanvraag type: 'Infrastructure/hardware problem', 'Application problem', 'Request new hardware', 'Request access', 'Security/Phished/Mimecast Issue', 'AI questions', 'Domain transfer', 'New employee', 'Leaving user form', 'Request Smartphone', 'WMS or Dynaman problem', 'Request a change'"},
+                "reporter_email": {"type": "string", "description": "E-mailadres van de ingelogde gebruiker die het ticket aanmaakt"},
+                "reporter_location": {"type": "string", "description": "Locatie/bedrijf van de reporter, bijv. 'Sterima NV' of 'PIT'"},
                 "requires_confirmation": {"type": "boolean", "description": "Moet true zijn"}
             },
             "required": ["summary", "project"]

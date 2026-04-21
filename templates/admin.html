@@ -385,8 +385,8 @@
 
 <header>
   <div class="logo">
-    <div class="logo-icon">P</div>
-    <h1>Pollet AI</h1>
+    <img src="/static/logo.svg" alt="Helpdesk AI" style="width:32px;height:32px;border-radius:8px;">
+    <h1>Helpdesk AI</h1>
     <span class="logo-sub">Admin</span>
   </div>
   <div class="header-right">
@@ -431,6 +431,22 @@
             {% endfor %}
           </tbody>
         </table>
+      </div>
+
+      <!-- Security prompt -->
+      <div class="card" style="grid-column: 1 / -1; border-color: #7f1d1d;">
+        <div class="card-title">
+          <span class="card-title-dot" style="background:#ef4444;"></span>
+          Security prompt
+          <span style="font-size:0.72rem;color:#64748b;font-weight:400;margin-left:6px;">— wordt als eerste blok geladen, hoogste prioriteit</span>
+        </div>
+        <div class="prompt-group" style="margin-bottom:0;">
+          <textarea id="prompt-security" class="prompt-textarea" rows="10" style="border-color:#7f1d1d;">Laden...</textarea>
+        </div>
+        <div class="save-row">
+          <button class="save-btn" id="save-security-btn" onclick="saveSecurity()" style="background:linear-gradient(135deg,#dc2626,#991b1b);">Opslaan</button>
+          <span class="save-status" id="save-security-status"></span>
+        </div>
       </div>
 
       <!-- RIGHT: Prompt editor -->
@@ -494,6 +510,10 @@
 </div>
 
 <script>
+fetch('/api/security').then(r => r.text()).then(t => {
+  document.getElementById('prompt-security').value = t;
+}).catch(() => {});
+
 // Load algemene_regels.md and selectie.md on page load
 fetch('/api/algemene_regels').then(r => r.text()).then(t => {
   document.getElementById('prompt-algemene-regels').value = t;
@@ -502,6 +522,34 @@ fetch('/api/algemene_regels').then(r => r.text()).then(t => {
 fetch('/api/selectie').then(r => r.text()).then(t => {
   document.getElementById('prompt-selectie').value = t;
 }).catch(() => {});
+
+async function saveSecurity() {
+  const btn = document.getElementById('save-security-btn');
+  const status = document.getElementById('save-security-status');
+  const content = document.getElementById('prompt-security').value.trim();
+  if (!content) {
+    status.textContent = 'Veld mag niet leeg zijn.';
+    status.className = 'save-status visible err';
+    return;
+  }
+  btn.disabled = true;
+  try {
+    const res = await fetch('/admin/security/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content })
+    });
+    const data = await res.json();
+    status.textContent = data.ok ? 'Opgeslagen.' : (data.error || 'Mislukt.');
+    status.className = 'save-status visible ' + (data.ok ? 'ok' : 'err');
+    if (data.ok) setTimeout(() => { status.className = 'save-status'; }, 3000);
+  } catch (e) {
+    status.textContent = 'Netwerkfout.';
+    status.className = 'save-status visible err';
+  } finally {
+    btn.disabled = false;
+  }
+}
 
 async function saveAlgemeneRegels() {
   const btn = document.getElementById('save-algemene-regels-btn');

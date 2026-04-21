@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Helpdesk AI — Aanmelden</title>
+  <link rel="icon" type="image/svg+xml" href="/static/logo.svg">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .card {
+      background: #161b27;
+      border: 1px solid #1e2535;
+      border-radius: 20px;
+      padding: 36px 32px;
+      width: 420px;
+      max-width: 95vw;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 28px;
+    }
+    .logo img {
+      width: 48px; height: 48px;
+      border-radius: 10px;
+    }
+    .logo h1 { font-size: 1.2rem; font-weight: 600; color: #f1f5f9; }
+    h2 { font-size: 0.95rem; color: #94a3b8; margin-bottom: 18px; font-weight: 400; }
+    .user-list { display: flex; flex-direction: column; gap: 6px; max-height: 380px; overflow-y: auto; }
+    .user-list::-webkit-scrollbar { width: 4px; }
+    .user-list::-webkit-scrollbar-thumb { background: #2d3748; border-radius: 4px; }
+    .user-btn {
+      text-align: left;
+      padding: 12px 16px;
+      border: 1px solid #1e2535;
+      border-radius: 12px;
+      cursor: pointer;
+      background: #0f1117;
+      font-family: inherit;
+      width: 100%;
+      transition: all 0.15s;
+    }
+    .user-btn:hover { background: #1a2030; border-color: #6366f1; }
+    .user-btn strong { font-size: 0.9rem; color: #e2e8f0; display: block; }
+    .user-meta { font-size: 0.76rem; color: #64748b; margin-top: 3px; }
+    .role-dot {
+      display: inline-block;
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      margin-right: 5px;
+    }
+    .role-dot.admin { background: #818cf8; }
+    .role-dot.beperkt { background: #fb923c; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <img src="/static/logo.svg" alt="Helpdesk AI">
+      <h1>Helpdesk AI</h1>
+    </div>
+    <h2>Wie ben jij?</h2>
+    <div class="user-list">
+      {% for u in all_users %}
+      <button class="user-btn" onclick="login('{{ u.email }}')">
+        <strong>{{ u.display_name }}</strong>
+        <div class="user-meta">
+          <span class="role-dot {{ u.role }}"></span>
+          {{ u.email }}
+        </div>
+      </button>
+      {% endfor %}
+    </div>
+  </div>
+  <script>
+    function login(email) {
+      fetch('/do-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      }).then(r => r.json()).then(d => { if (d.ok) location.href = '/'; });
+    }
+  </script>
+</body>
+</html>
