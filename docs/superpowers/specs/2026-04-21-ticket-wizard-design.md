@@ -16,8 +16,8 @@ Department scripts live in `docs/departments/` — one `.md` file per department
 
 ```
 docs/departments/
-  ITS.md
-  OPS.md
+  its.md
+  ops.md
   ...
 ```
 
@@ -32,8 +32,9 @@ docs/departments/
 5. Is er al iets geprobeerd om het op te lossen?
 ```
 
-- The display name is read from the first `#` heading.
-- The file name is the department name in lowercase + `.md` (e.g. `its.md`).
+- Files are always stored **lowercase** (e.g. `its.md`, never `ITS.md`). Cross-platform safe.
+- The display name is read from the first `#` heading in the file.
+- File names must match `[a-z0-9_]+` only (alphanumeric + underscores). The admin UI validates and rejects anything else.
 - No database required — plain files, editable by admins.
 
 ---
@@ -41,8 +42,14 @@ docs/departments/
 ## 2. Wizard Flow
 
 ### Trigger
-- **Button:** A "Nieuw ticket" button in the chat header always available.
-- **Claude detection:** When Claude detects ticket creation intent and calls `create_ticket` without the wizard having run, the backend returns `{"type": "start_wizard"}` instead of executing the tool. The frontend starts the wizard with the detected department pre-selected if available.
+- **Button:** A "Nieuw ticket" button in the chat header, always visible. Clicking it immediately starts the wizard regardless of chat state. If no departments are configured, the wizard shows "Geen afdelingen geconfigureerd — contacteer een admin." and closes.
+- **Claude detection:** When the user types something that implies ticket creation (e.g. "maak een ticket aan") without using the button, the normal `/chat` call is made. If Claude would call `create_ticket` **and** the request does not include `wizard_completed: true`, the backend intercepts this in the `/chat` route before executing the tool and returns:
+  ```json
+  {"type": "start_wizard", "suggested_department": null}
+  ```
+  The frontend recognizes `type === "start_wizard"` (same response shape as normal `/chat` responses, with a new type value) and triggers the wizard. The original user message is discarded — the wizard starts fresh.
+
+The frontend sends `wizard_completed: true` as a top-level field in the POST body to `/chat` only after the user has completed all wizard steps. The backend checks: if `wizard_completed` is not `true` and Claude's response contains a `create_ticket` tool call, short-circuit and return `start_wizard`.
 
 ### Step-by-step (inline in chat)
 ```
@@ -61,7 +68,7 @@ Bot:  "Vraag 2/5: Beschrijf het probleem zo concreet mogelijk."
 Bot:  "Vraag 5/5: Is er al iets geprobeerd?"
 User: types answer
 
-→ Frontend collects all answers, sends ONE request to Claude:
+→ Frontend sends ONE message to /chat with wizard_completed=true:
   "Maak een ticket aan voor ITS met de volgende informatie:
    - Systeem: [answer 1]
    - Probleem: [answer 2]
@@ -69,25 +76,35 @@ User: types answer
    - Getroffen gebruikers: [answer 4]
    - Al geprobeerd: [answer 5]"
 
-Claude: shows summary + confirmation dialog (requires_confirmation=true)
+Claude responds with usual confirmation_required type (no special handling needed)
 User confirms → ticket created in Jira
 ```
 
 ### Wizard state (in `chat.js`)
 ```js
-wizardState = {
+let wizardState = {
   active: false,
-  department: null,
-  questions: [],   // parsed from markdown
-  answers: [],
-  currentStep: 0
+  department: null,    // slug string, e.g. "its"
+  questions: [],       // string[], parsed from markdown via parseQuestions()
+  answers: [],         // string[], one per question answered so far
+  currentStep: 0       // index into questions[]
 }
 ```
 
-During an active wizard:
-- The send button processes wizard answers, not normal chat messages.
-- An "Annuleren" chip is shown after each question.
-- Cancelling resets `wizardState` and returns to normal chat.
+- Wizard state lives in a JS module-level variable — not in sessionStorage. A page refresh resets the wizard. Acceptable for demo scope.
+- During an active wizard, the send button handler checks `wizardState.active` first. If true, the typed text is treated as a wizard answer, **not** sent to Claude.
+- An "Annuleren" chip is shown after each question. Cancelling resets `wizardState` and posts "Ticketaanmaak geannuleerd." as a bot message, returning to normal chat.
+- **Wizard Q&A does not appear in `session["messages"]` on the backend** — wizard question/answer turns are rendered in the chat UI but never POSTed to `/chat`. Only the single final aggregated message is sent to `/chat` (with `wizard_completed: true`). This prevents context duplication.
+
+### Question parsing
+`parseQuestions(markdown)` lives in **`chat.js`** (frontend only). Algorithm:
+1. Split markdown into lines.
+2. Extract lines matching `/^\d+\.\s+(.+)/` — capture the text after `N. `.
+3. Sort by the numeric prefix.
+4. Gaps are allowed (1, 3, 5 is valid).
+5. If zero questions are found, fall back to `["Beschrijf het probleem."]`.
+
+The backend does not parse questions — it only serves raw markdown via `/api/departments/<slug>`.
 
 ---
 
@@ -95,20 +112,32 @@ During an active wizard:
 
 New routes added to `app.py`:
 
-| Method | Route | Description |
-|--------|-------|-------------|
-| `GET` | `/api/departments` | List all department names (from `docs/departments/*.md`) |
-| `GET` | `/api/departments/<name>` | Return markdown content of one department script |
-| `POST` | `/admin/departments/save` | Save/create a department script (admin only) |
-| `DELETE` | `/admin/departments/<name>` | Delete a department script (admin only) |
+| Method | Route | Auth | Description |
+|--------|-------|------|-------------|
+| `GET` | `/api/departments` | Any authenticated user | List department display names and slugs |
+| `GET` | `/api/departments/<slug>` | Any authenticated user | Return raw markdown of one department script |
+| `POST` | `/admin/departments/save` | Admin only | Save/create a department script |
+| `DELETE` | `/admin/departments/<slug>` | Admin only | Delete a department script |
 
-**Helper function** `parse_questions(markdown: str) -> list[str]` extracts numbered questions (lines matching `^\d+\.`). Used by the frontend after fetching the department script.
+`/api/departments*` — public to any authenticated session (needed by the wizard frontend).
+`/admin/departments/*` — admin-only, same guard as the existing `/admin` route.
 
-**Claude intent detection:** If Claude calls `create_ticket` during normal chat (wizard was not active), the `/chat` endpoint checks whether the wizard should have run first. If so, it returns:
+**`/api/departments` response:**
 ```json
-{"type": "start_wizard", "suggested_department": "ITS"}
+[
+  {"slug": "its", "name": "ITS — Ticket vragen"},
+  {"slug": "ops", "name": "OPS — Ticket vragen"}
+]
 ```
-The frontend catches this and starts the wizard with `ITS` pre-selected.
+If `docs/departments/` is empty or missing, returns `[]`.
+
+**`/admin/departments/save` body:**
+```json
+{"slug": "its", "content": "# ITS — Ticket vragen\n\n1. ..."}
+```
+Slug is validated against `[a-z0-9_]+` before writing. Returns `{"ok": true}` or `{"error": "..."}`.
+
+**DELETE behavior:** Immediately removes the file. Active wizards using that department (in-browser) complete normally since the data is already in frontend memory. No soft delete.
 
 ---
 
@@ -126,7 +155,7 @@ Afdelingen:
   [+ Nieuwe afdeling]
 
 Inline editor (on Bewerken):
-  Naam: [ ITS          ]
+  Naam: [ ITS          ]   ← validates [a-z0-9_]+ on save, shown as lowercase
   ┌─────────────────────────────────┐
   │ # ITS — Ticket vragen           │
   │                                 │
@@ -136,18 +165,18 @@ Inline editor (on Bewerken):
   [Opslaan]  [Annuleren]
 ```
 
-- Admin-only: non-admin users cannot access `/admin`.
-- The file name is derived from the "Naam" field (lowercase, spaces → underscores).
 - "Verwijderen" shows a confirmation prompt before deleting.
+- After saving, the list refreshes via GET `/api/departments`.
 
 ---
 
 ## 5. Error Handling
 
-- If `docs/departments/` is empty: the department selection step shows "Geen afdelingen geconfigureerd — contacteer een admin."
-- If a department file is malformed (no numbered questions found): fallback to a single open-ended question: "Beschrijf het probleem."
-- Network error during wizard: show error message, keep wizard state so user can retry.
-- Cancel at any step: reset wizard, post "Ticketaanmaak geannuleerd." as bot message.
+- **Empty department list:** Show "Geen afdelingen geconfigureerd — contacteer een admin." as a bot message and reset wizard state. The "Nieuw ticket" button remains enabled.
+- **Malformed markdown** (no numbered questions found): Fall back to a single open-ended question: "Beschrijf het probleem."
+- **Network error mid-wizard:** Show error message in chat, keep wizard state so user can retry the failed step.
+- **Cancel at any step:** Reset wizard state, post "Ticketaanmaak geannuleerd." as a bot message, return to normal chat.
+- **Invalid slug on save:** Admin UI rejects input not matching `[a-z0-9_]+` with an inline validation message before sending to backend.
 
 ---
 
@@ -155,9 +184,10 @@ Inline editor (on Bewerken):
 
 | File | Change |
 |------|--------|
-| `app.py` | Add `/api/departments`, `/admin/departments/save`, `/admin/departments/<name>` routes |
-| `static/chat.js` | Add wizard state machine, department chip UI, question flow, answer collection |
+| `app.py` | Add `/api/departments`, `/api/departments/<slug>`, `/admin/departments/save`, `/admin/departments/<slug>` routes |
+| `static/chat.js` | Add `wizardState`, `parseQuestions()`, department chip UI, question flow, answer collection, `wizard_completed` flag |
 | `templates/chat.html` | Add "Nieuw ticket" button in header |
 | `templates/admin.html` | Add "Afdelingen" tab with inline editor |
-| `docs/departments/*.md` | New directory with initial department scripts (ITS, OPS) |
-| `claude_client.py` | No changes needed — wizard sends a normal `create_ticket` call at the end |
+| `docs/departments/its.md` | Initial ITS question script |
+| `docs/departments/ops.md` | Initial OPS question script |
+| `claude_client.py` | No changes needed |
