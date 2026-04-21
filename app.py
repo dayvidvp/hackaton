@@ -130,7 +130,10 @@ def confirm():
         role=session["user"].get("role", "beperkt"),
         user=session["user"]
     )
-    session["messages"].append({"role": "assistant", "content": result.get("text", "Actie uitgevoerd.")})
+    if pending["tool_name"] == "create_ticket":
+        session["messages"] = []
+    else:
+        session["messages"].append({"role": "assistant", "content": result.get("text", "Actie uitgevoerd.")})
     session.modified = True
     return jsonify({"type": "text", "message": result.get("text", "Actie uitgevoerd.")})
 

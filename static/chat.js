@@ -114,7 +114,13 @@ async function startWizard(suggestedSlug) {
   try {
     const resp = await fetch('/api/departments');
     const departments = await resp.json();
-    showDepartmentPicker(departments, suggestedSlug || null);
+    const defaultSlug = suggestedSlug || 'its';
+    const hasDefault = departments.some(d => d.slug === defaultSlug);
+    if (departments.length <= 1 || hasDefault) {
+      const slug = hasDefault ? defaultSlug : (departments[0] && departments[0].slug);
+      if (slug) { await selectDepartment(slug); sendBtn.disabled = false; return; }
+    }
+    showDepartmentPicker(departments, defaultSlug);
   } catch (e) {
     addMessage('Fout bij laden van afdelingen: ' + e.message, 'assistant');
     wizardState.active = false;
