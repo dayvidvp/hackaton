@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Helpdesk — KB Beheer</title>
+  <script>
+    (function () {
+      const t = localStorage.getItem('theme');
+      if (t === 'light') document.documentElement.setAttribute('data-theme', 'light');
+    })();
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    :root {
+      --bg-base:         #0f1117;
+      --bg-surface:      #161b27;
+      --bg-surface-2:    #1e2535;
+      --bg-surface-3:    #1a2030;
+      --bg-surface-hover:#252f40;
+      --border:          #1e2535;
+      --border-2:        #2d3748;
+      --text-primary:    #f1f5f9;
+      --text-secondary:  #e2e8f0;
+      --text-muted:      #cbd5e1;
+      --text-subtle:     #94a3b8;
+      --text-faint:      #64748b;
+    }
+
+    [data-theme="light"] {
+      --bg-base:         #f1f5f9;
+      --bg-surface:      #ffffff;
+      --bg-surface-2:    #f1f5f9;
+      --bg-surface-3:    #e8edf5;
+      --bg-surface-hover:#e2e8f0;
+      --border:          #e2e8f0;
+      --border-2:        #cbd5e1;
+      --text-primary:    #0f172a;
+      --text-secondary:  #1e293b;
+      --text-muted:      #334155;
+      --text-subtle:     #475569;
+      --text-faint:      #94a3b8;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-base);
+      min-height: 100vh;
+      color: var(--text-secondary);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── HEADER ── */
+    header {
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 28px;
+      height: 60px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .logo { display: flex; align-items: center; gap: 10px; }
+    .logo img { width: 32px; height: 32px; border-radius: 8px; }
+    .logo h1 { font-size: 1.1rem; font-weight: 600; color: var(--text-primary); letter-spacing: -0.02em; }
+    .logo-sub { font-size: 0.78rem; color: #6366f1; font-weight: 500; margin-left: 2px; }
+
+    .header-right { display: flex; align-items: center; gap: 10px; }
+
+    .back-btn {
+      background: var(--bg-surface-2);
+      border: 1px solid var(--border-2);
+      color: var(--text-subtle);
+      padding: 5px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.78rem;
+      font-family: inherit;
+      font-weight: 500;
+      transition: all 0.15s;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .back-btn:hover { background: var(--bg-surface-hover); color: var(--text-muted); }
+
+    .theme-toggle-btn {
+      background: var(--bg-surface-2);
+      border: 1px solid var(--border-2);
+      color: var(--text-subtle);
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+    }
+    .theme-toggle-btn:hover { background: var(--bg-surface-hover); color: var(--text-muted); }
+
+    /* ── LAYOUT ── */
+    .page-wrap {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 0;
+      max-width: 1400px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 28px;
+      gap: 24px;
+      align-items: start;
+    }
+
+    @media (max-width: 900px) {
+      .page-wrap { grid-template-columns: 1fr; }
+    }
+
+    /* ── LEFT PANEL: lijst ── */
+    .panel-list { display: flex; flex-direction: column; gap: 12px; }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+
+    .panel-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #6366f1, #7c3aed);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 7px 16px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-primary:hover { opacity: 0.85; }
+
+    .upload-btn {
+      background: var(--bg-surface-2);
+      border: 1px solid var(--border-2);
+      color: var(--text-subtle);
+      border-radius: 8px;
+      padding: 7px 14px;
+      font-size: 0.8rem;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .upload-btn:hover { background: var(--bg-surface-hover); color: var(--text-muted); }
+
+    .kb-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .kb-card:hover { border-color: #6366f1; background: var(--bg-surface-3); }
+    .kb-card.active { border-color: #6366f1; background: #1e2a4a; }
+
+    [data-theme="light"] .kb-card.active { background: #eef2ff; }
+
+    .kb-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+
+    .kb-card-title {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      line-height: 1.3;
+    }
+
+    .kb-card-actions { display: flex; gap: 4px; flex-shrink: 0; }
+
+    .icon-btn {
+      background: transparent;
+      border: 1px solid var(--border-2);
+      color: var(--text-faint);
+      width: 28px; height: 28px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+      flex-shrink: 0;
+    }
+    .icon-btn:hover { background: var(--bg-surface-hover); color: var(--text-subtle); }
+    .icon-btn.danger:hover { background: #2d1515; border-color: #7f1d1d; color: #f87171; }
+
+    .kb-card-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 2px;
+    }
+
+    .kb-tag {
+      font-size: 0.71rem;
+      padding: 2px 8px;
+      border-radius: 20px;
+      background: var(--bg-surface-2);
+      color: var(--text-faint);
+      border: 1px solid var(--border);
+    }
+
+    .kb-lines { font-size: 0.71rem; color: var(--text-faint); }
+
+    .kb-empty {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-faint);
+      font-size: 0.85rem;
+      background: var(--bg-surface);
+      border: 1px dashed var(--border-2);
+      border-radius: 12px;
+    }
+
+    /* ── RIGHT PANEL: editor ── */
+    .panel-editor {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      position: sticky;
+      top: 28px;
+    }
+
+    .editor-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .editor-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .editor-filename-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .filename-prefix {
+      font-size: 0.82rem;
+      color: var(--text-faint);
+      white-space: nowrap;
+    }
+
+    .filename-input {
+      flex: 1;
+      background: var(--bg-base);
+      border: 1px solid var(--border-2);
+      border-radius: 8px;
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 0.85rem;
+      padding: 7px 12px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .filename-input:focus { border-color: #6366f1; }
+    .filename-input:disabled { opacity: 0.5; cursor: not-allowed; }
+    .filename-ext { font-size: 0.82rem; color: var(--text-faint); }
+
+    /* ── Structured new article fields ── */
+    .new-article-fields {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .field-group { display: flex; flex-direction: column; gap: 4px; }
+    .field-group.full { grid-column: 1 / -1; }
+
+    .field-label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-subtle);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .field-input, .field-select {
+      background: var(--bg-base);
+      border: 1px solid var(--border-2);
+      border-radius: 8px;
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 0.85rem;
+      padding: 7px 12px;
+      outline: none;
+      transition: border-color 0.2s;
+      width: 100%;
+    }
+    .field-input:focus, .field-select:focus { border-color: #6366f1; }
+
+    .markdown-editor {
+      width: 100%;
+      background: var(--bg-base);
+      border: 1px solid var(--border-2);
+      border-radius: 10px;
+      color: var(--text-muted);
+      font-family: 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+      font-size: 0.82rem;
+      line-height: 1.65;
+      padding: 14px 16px;
+      resize: vertical;
+      min-height: 400px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .markdown-editor:focus { border-color: #6366f1; }
+
+    .editor-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .toolbar-btn {
+      background: var(--bg-surface-2);
+      border: 1px solid var(--border-2);
+      color: var(--text-subtle);
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      font-family: monospace;
+      transition: all 0.15s;
+    }
+    .toolbar-btn:hover { background: var(--bg-surface-hover); color: var(--text-muted); }
+
+    .editor-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .save-btn {
+      background: linear-gradient(135deg, #6366f1, #7c3aed);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 9px 24px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .save-btn:hover { opacity: 0.85; }
+    .save-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .cancel-btn {
+      background: transparent;
+      border: 1px solid var(--border-2);
+      color: var(--text-faint);
+      border-radius: 8px;
+      padding: 9px 18px;
+      font-size: 0.85rem;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .cancel-btn:hover { background: var(--bg-surface-2); color: var(--text-subtle); }
+
+    .save-status {
+      font-size: 0.82rem;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .save-status.visible { opacity: 1; }
+    .save-status.ok  { color: #34d399; }
+    .save-status.err { color: #f87171; }
+
+    .char-count { font-size: 0.75rem; color: var(--text-faint); }
+
+    /* ── DIVIDER ── */
+    .section-divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 4px 0;
+    }
+
+    /* ── Drag & drop upload zone ── */
+    .upload-zone {
+      border: 2px dashed var(--border-2);
+      border-radius: 10px;
+      padding: 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.15s;
+      background: var(--bg-base);
+    }
+    .upload-zone:hover, .upload-zone.drag-over {
+      border-color: #6366f1;
+      background: var(--bg-surface-3);
+    }
+    .upload-zone p {
+      font-size: 0.82rem;
+      color: var(--text-faint);
+      margin-top: 6px;
+    }
+    #file-input { display: none; }
+
+    /* ── Laadindicator ── */
+    .loading-row {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 0.82rem; color: var(--text-faint);
+      padding: 12px 0;
+    }
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid var(--border-2);
+      border-top-color: #6366f1;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <img src="/static/logo.svg" alt="Helpdesk AI">
+    <h1>Helpdesk AI</h1>
+    <span class="logo-sub">KB Beheer</span>
+  </div>
+  <div class="header-right">
+    <button class="theme-toggle-btn" onclick="toggleTheme()" title="Schakel thema"></button>
+    <a href="/admin" class="back-btn">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+      Terug naar beheer
+    </a>
+  </div>
+</header>
+
+<div class="page-wrap">
+
+  <!-- ── LEFT: KB bestandenlijst ── -->
+  <div class="panel-list">
+    <div class="panel-header">
+      <span class="panel-title">Kennisbank artikelen</span>
+      <div style="display:flex;gap:8px;">
+        <button class="upload-btn" onclick="document.getElementById('file-input').click()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          Uploaden
+        </button>
+        <button class="btn-primary" onclick="openNewEditor()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          Nieuw artikel
+        </button>
+      </div>
+    </div>
+
+    <input type="file" id="file-input" accept=".md" multiple onchange="uploadFiles(this.files)">
+
+    <!-- Upload zone -->
+    <div class="upload-zone" id="upload-zone"
+         ondragover="event.preventDefault();this.classList.add('drag-over')"
+         ondragleave="this.classList.remove('drag-over')"
+         ondrop="event.preventDefault();this.classList.remove('drag-over');uploadFiles(event.dataTransfer.files)"
+         onclick="document.getElementById('file-input').click()">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-faint);margin:auto;">
+        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+      </svg>
+      <p>Sleep .md bestanden hierheen of klik om te uploaden</p>
+    </div>
+
+    <div id="kb-list">
+      <div class="loading-row"><div class="spinner"></div> Bestanden laden…</div>
+    </div>
+  </div>
+
+  <!-- ── RIGHT: Editor ── -->
+  <div class="panel-editor">
+    <div class="editor-header">
+      <span class="editor-title" id="editor-title">Selecteer een artikel</span>
+    </div>
+
+    <!-- Filename (nieuw artikel) -->
+    <div id="filename-row" class="editor-filename-row" style="display:none;">
+      <span class="field-label" style="white-space:nowrap;">Bestandsnaam</span>
+      <input type="text" id="editor-slug" class="filename-input" placeholder="KB-AX3-003-Nieuwe-fout" maxlength="80">
+      <span class="filename-ext">.md</span>
+    </div>
+
+    <!-- Gestructureerde velden (alleen bij nieuw) -->
+    <div id="structured-fields" style="display:none;">
+      <div class="new-article-fields">
+        <div class="field-group">
+          <label class="field-label">Systeem</label>
+          <select id="field-systeem" class="field-select" onchange="applyTemplate()">
+            <option value="">— kies systeem —</option>
+            <option value="Axapta 3">Axapta 3</option>
+            <option value="Microsoft Dynamics 365 Finance &amp; Operations">Dynamics 365</option>
+            <option value="Infrastructuur / IT Algemeen">Infrastructuur</option>
+            <option value="SMT365 / Sterima">SMT365 / Sterima</option>
+            <option value="WMS / Dynaman">WMS / Dynaman</option>
+            <option value="Webshop / SANA">Webshop / SANA</option>
+            <option value="Algemeen">Algemeen</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Categorie</label>
+          <input type="text" id="field-categorie" class="field-input" placeholder="Technisch / Functioneel">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Doelgroep</label>
+          <input type="text" id="field-doelgroep" class="field-input" placeholder="IT Support, Key Users">
+        </div>
+        <div class="field-group">
+          <label class="field-label">KB nummer (bv. KB-AX3-003)</label>
+          <input type="text" id="field-kbnr" class="field-input" placeholder="KB-AX3-003">
+        </div>
+        <div class="field-group full">
+          <label class="field-label">Artikel titel</label>
+          <input type="text" id="field-titel" class="field-input" placeholder="Axapta 3: Nieuwe foutafhandeling">
+        </div>
+      </div>
+      <button class="upload-btn" style="margin-top:8px;width:100%;justify-content:center;" onclick="generateTemplate()">
+        Template genereren en bewerken
+      </button>
+      <hr class="section-divider" style="margin-top:14px;">
+    </div>
+
+    <!-- Markdown toolbar -->
+    <div class="editor-toolbar" id="editor-toolbar" style="display:none;">
+      <button class="toolbar-btn" onclick="insertMd('**', '**')" title="Vet">B</button>
+      <button class="toolbar-btn" onclick="insertMd('*', '*')" title="Cursief" style="font-style:italic;">I</button>
+      <button class="toolbar-btn" onclick="insertMd('`', '`')" title="Code">`code`</button>
+      <button class="toolbar-btn" onclick="insertMdLine('## ')" title="Kop 2">H2</button>
+      <button class="toolbar-btn" onclick="insertMdLine('### ')" title="Kop 3">H3</button>
+      <button class="toolbar-btn" onclick="insertMdLine('- ')" title="Lijst">—</button>
+      <button class="toolbar-btn" onclick="insertMdLine('1. ')" title="Genummerd">1.</button>
+      <button class="toolbar-btn" onclick="insertTable()" title="Tabel">&#9776;</button>
+      <button class="toolbar-btn" onclick="insertMdLine('> ')" title="Opmerking">"</button>
+    </div>
+
+    <!-- Textarea -->
+    <textarea id="editor-content" class="markdown-editor"
+              placeholder="Selecteer een KB artikel om te bewerken, of maak een nieuw artikel aan."
+              oninput="updateCharCount()" style="display:none;"></textarea>
+
+    <!-- Placeholder als niets geselecteerd -->
+    <div id="editor-placeholder" style="padding:60px 20px;text-align:center;color:var(--text-faint);font-size:0.85rem;">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin:0 auto 12px;display:block;opacity:0.4;">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+      </svg>
+      Selecteer een artikel links om te bewerken,<br>of klik <strong>Nieuw artikel</strong> om te starten.
+    </div>
+
+    <!-- Footer -->
+    <div class="editor-footer" id="editor-footer" style="display:none;">
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="save-btn" id="save-btn" onclick="saveKb()">Opslaan</button>
+        <button class="cancel-btn" onclick="cancelEdit()">Annuleren</button>
+        <span class="save-status" id="save-status"></span>
+      </div>
+      <span class="char-count" id="char-count">0 tekens</span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let currentSlug = null;
+let isNew = false;
+
+// ── Lijst laden ──────────────────────────────────────────────────────────────
+async function loadList() {
+  const list = document.getElementById('kb-list');
+  try {
+    const resp = await fetch('/api/kb');
+    const files = await resp.json();
+    if (!Array.isArray(files) || !files.length) {
+      list.innerHTML = '<div class="kb-empty">Nog geen KB artikelen. Upload een .md bestand of maak een nieuw artikel aan.</div>';
+      return;
+    }
+    list.innerHTML = files.map(f => `
+      <div class="kb-card" id="card-${CSS.escape(f.slug)}" onclick="openEdit('${esc(f.slug)}')">
+        <div class="kb-card-top">
+          <span class="kb-card-title">${esc(f.title)}</span>
+          <div class="kb-card-actions" onclick="event.stopPropagation()">
+            <button class="icon-btn" title="Bewerken" onclick="openEdit('${esc(f.slug)}')">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+            <button class="icon-btn danger" title="Verwijderen" onclick="deleteKb('${esc(f.slug)}', '${esc(f.title)}')">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="kb-card-meta">
+          ${f.systeem ? `<span class="kb-tag">${esc(f.systeem)}</span>` : ''}
+          <span class="kb-lines">${f.lines} regels</span>
+        </div>
+      </div>
+    `).join('');
+  } catch (e) {
+    list.innerHTML = '<div class="kb-empty" style="color:#f87171;">Kon bestanden niet laden.</div>';
+  }
+}
+
+// ── Artikel openen ───────────────────────────────────────────────────────────
+async function openEdit(slug) {
+  setActiveCard(slug);
+  currentSlug = slug;
+  isNew = false;
+
+  document.getElementById('editor-title').textContent = 'Bewerken';
+  document.getElementById('filename-row').style.display = 'none';
+  document.getElementById('structured-fields').style.display = 'none';
+  document.getElementById('editor-placeholder').style.display = 'none';
+  document.getElementById('editor-toolbar').style.display = 'flex';
+  document.getElementById('editor-content').style.display = 'block';
+  document.getElementById('editor-footer').style.display = 'flex';
+  document.getElementById('editor-content').value = 'Laden…';
+  showStatus('', '');
+
+  try {
+    const resp = await fetch(`/api/kb/${slug}`);
+    if (!resp.ok) throw new Error(await resp.text());
+    document.getElementById('editor-content').value = await resp.text();
+    updateCharCount();
+  } catch (e) {
+    document.getElementById('editor-content').value = '';
+    showStatus('Kon bestand niet laden: ' + e.message, 'err');
+  }
+}
+
+// ── Nieuw artikel ────────────────────────────────────────────────────────────
+function openNewEditor() {
+  currentSlug = null;
+  isNew = true;
+  setActiveCard(null);
+
+  document.getElementById('editor-title').textContent = 'Nieuw KB artikel';
+  document.getElementById('editor-slug').value = '';
+  document.getElementById('editor-slug').disabled = false;
+  document.getElementById('filename-row').style.display = 'flex';
+  document.getElementById('structured-fields').style.display = 'block';
+  document.getElementById('editor-placeholder').style.display = 'none';
+  document.getElementById('editor-toolbar').style.display = 'flex';
+  document.getElementById('editor-content').style.display = 'block';
+  document.getElementById('editor-content').value = '';
+  document.getElementById('editor-footer').style.display = 'flex';
+
+  // Reset structured fields
+  document.getElementById('field-systeem').value = '';
+  document.getElementById('field-categorie').value = '';
+  document.getElementById('field-doelgroep').value = '';
+  document.getElementById('field-kbnr').value = '';
+  document.getElementById('field-titel').value = '';
+  showStatus('', '');
+  updateCharCount();
+}
+
+// ── Template genereren ───────────────────────────────────────────────────────
+function applyTemplate() {}
+
+function generateTemplate() {
+  const nr = document.getElementById('field-kbnr').value.trim() || 'KB-XXX-001';
+  const titel = document.getElementById('field-titel').value.trim() || 'Nieuwe Fout';
+  const systeem = document.getElementById('field-systeem').value || '...';
+  const categorie = document.getElementById('field-categorie').value.trim() || 'Technisch / Functioneel';
+  const doelgroep = document.getElementById('field-doelgroep').value.trim() || 'IT Support';
+
+  const template = `# ${nr} — ${titel}
+
+**Systeem:** ${systeem}
+**Categorie:** ${categorie}
+**Taal:** NL
+**Doelgroep:** ${doelgroep}
+
+---
+
+## 1. Probleem
+
+Beschrijf hier het probleem of de foutmelding.
+
+---
+
+## 2. Oplossing
+
+### Stap 1: ...
+
+1. Eerste stap
+2. Tweede stap
+3. Derde stap
+
+---
+
+## 3. Veelvoorkomende varianten
+
+### 3.1 Variant A
+
+**Oorzaak:** ...
+
+**Oplossing:**
+1. ...
+
+---
+
+## Referenties
+
+| Document | Locatie |
+|---|---|
+| ... | ... |
+`;
+
+  document.getElementById('editor-content').value = template;
+  if (!document.getElementById('editor-slug').value) {
+    document.getElementById('editor-slug').value = nr.replace(/\s+/g, '-');
+  }
+  document.getElementById('structured-fields').style.display = 'none';
+  updateCharCount();
+  document.getElementById('editor-content').focus();
+}
+
+// ── Opslaan ──────────────────────────────────────────────────────────────────
+async function saveKb() {
+  const slug = isNew
+    ? document.getElementById('editor-slug').value.trim()
+    : currentSlug;
+  const content = document.getElementById('editor-content').value.trim();
+
+  if (!slug) { showStatus('Bestandsnaam is verplicht.', 'err'); return; }
+  if (!content) { showStatus('Inhoud mag niet leeg zijn.', 'err'); return; }
+
+  const btn = document.getElementById('save-btn');
+  btn.disabled = true;
+  showStatus('', '');
+
+  try {
+    const resp = await fetch('/admin/kb/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug, content })
+    });
+    const data = await resp.json();
+    if (data.ok) {
+      showStatus('Opgeslagen.', 'ok');
+      currentSlug = slug;
+      isNew = false;
+      document.getElementById('editor-slug').disabled = true;
+      document.getElementById('filename-row').style.display = 'none';
+      document.getElementById('structured-fields').style.display = 'none';
+      document.getElementById('editor-title').textContent = 'Bewerken';
+      await loadList();
+      setActiveCard(slug);
+      setTimeout(() => showStatus('', ''), 3000);
+    } else {
+      showStatus(data.error || 'Opslaan mislukt.', 'err');
+    }
+  } catch (e) {
+    showStatus('Netwerkfout.', 'err');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── Verwijderen ──────────────────────────────────────────────────────────────
+async function deleteKb(slug, title) {
+  if (!confirm(`KB artikel "${title}" verwijderen?\n\nDeze actie kan niet ongedaan worden gemaakt.`)) return;
+  try {
+    const resp = await fetch(`/admin/kb/${slug}`, { method: 'DELETE' });
+    const data = await resp.json();
+    if (data.ok) {
+      if (currentSlug === slug) cancelEdit();
+      await loadList();
+    } else {
+      alert(data.error || 'Verwijderen mislukt.');
+    }
+  } catch (e) {
+    alert('Netwerkfout bij verwijderen.');
+  }
+}
+
+// ── Uploaden ─────────────────────────────────────────────────────────────────
+async function uploadFiles(files) {
+  if (!files || !files.length) return;
+  let ok = 0, errors = [];
+
+  for (const file of files) {
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      const resp = await fetch('/admin/kb/upload', { method: 'POST', body: fd });
+      const data = await resp.json();
+      if (data.ok) ok++;
+      else errors.push(`${file.name}: ${data.error}`);
+    } catch (e) {
+      errors.push(`${file.name}: netwerkfout`);
+    }
+  }
+
+  await loadList();
+  if (errors.length) alert('Fouten:\n' + errors.join('\n'));
+  else if (ok > 0) {
+    // Open laatste geüploade bestand direct
+    const lastName = files[files.length - 1].name.replace(/\.md$/i, '');
+    openEdit(lastName);
+  }
+  // reset input
+  document.getElementById('file-input').value = '';
+}
+
+// ── Annuleren ────────────────────────────────────────────────────────────────
+function cancelEdit() {
+  currentSlug = null;
+  isNew = false;
+  setActiveCard(null);
+  document.getElementById('editor-title').textContent = 'Selecteer een artikel';
+  document.getElementById('filename-row').style.display = 'none';
+  document.getElementById('structured-fields').style.display = 'none';
+  document.getElementById('editor-toolbar').style.display = 'none';
+  document.getElementById('editor-content').style.display = 'none';
+  document.getElementById('editor-footer').style.display = 'none';
+  document.getElementById('editor-placeholder').style.display = 'block';
+  showStatus('', '');
+}
+
+// ── Markdown toolbar ─────────────────────────────────────────────────────────
+function insertMd(before, after) {
+  const ta = document.getElementById('editor-content');
+  const start = ta.selectionStart, end = ta.selectionEnd;
+  const selected = ta.value.slice(start, end);
+  ta.setRangeText(before + selected + after, start, end, 'end');
+  ta.focus();
+  updateCharCount();
+}
+
+function insertMdLine(prefix) {
+  const ta = document.getElementById('editor-content');
+  const start = ta.selectionStart;
+  const lineStart = ta.value.lastIndexOf('\n', start - 1) + 1;
+  ta.setRangeText(prefix, lineStart, lineStart, 'end');
+  ta.focus();
+  updateCharCount();
+}
+
+function insertTable() {
+  const table = `\n| Kolom 1 | Kolom 2 | Kolom 3 |\n|---|---|---|\n| Rij 1   | Data    | Data    |\n| Rij 2   | Data    | Data    |\n`;
+  const ta = document.getElementById('editor-content');
+  ta.setRangeText(table, ta.selectionStart, ta.selectionEnd, 'end');
+  ta.focus();
+  updateCharCount();
+}
+
+// ── Hulpfuncties ─────────────────────────────────────────────────────────────
+function setActiveCard(slug) {
+  document.querySelectorAll('.kb-card').forEach(c => c.classList.remove('active'));
+  if (slug) {
+    const card = document.getElementById(`card-${CSS.escape(slug)}`);
+    if (card) card.classList.add('active');
+  }
+}
+
+function showStatus(msg, type) {
+  const el = document.getElementById('save-status');
+  el.textContent = msg;
+  el.className = 'save-status' + (msg ? ' visible ' + type : '');
+}
+
+function updateCharCount() {
+  const n = document.getElementById('editor-content').value.length;
+  document.getElementById('char-count').textContent = n.toLocaleString('nl') + ' tekens';
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+loadList();
+</script>
+<script src="/static/theme.js"></script>
+</body>
+</html>

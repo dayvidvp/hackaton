@@ -313,6 +313,113 @@ def _departments_dir() -> Path:
     return Path(__file__).parent / "docs" / "departments"
 
 
+def _kb_dir() -> Path:
+    return Path(__file__).parent / "docs" / "KB"
+
+
+def _kb_slug_valid(slug: str) -> bool:
+    return bool(re.match(r'^[a-zA-Z0-9_\-]+$', slug))
+
+
+@app.route("/admin/kb")
+def admin_kb():
+    if "user" not in session or session["user"].get("role") != "admin":
+        return redirect(url_for("index"))
+    return render_template("admin_kb.html", user=session["user"])
+
+
+@app.route("/api/kb")
+def api_kb_list():
+    if "user" not in session or session["user"].get("role") != "admin":
+        return jsonify({"error": "Niet toegestaan"}), 403
+    d = _kb_dir()
+    result = []
+    if d.exists():
+        for f in sorted(d.glob("*.md")):
+            content = f.read_text(encoding="utf-8")
+            lines = content.splitlines()
+            title = next((l.lstrip("# ").strip() for l in lines if l.startswith("# ")), f.stem)
+            systeem = ""
+            for l in lines:
+                if l.startswith("**Systeem:**"):
+                    systeem = l.replace("**Systeem:**", "").strip()
+                    break
+            result.append({
+                "slug": f.stem,
+                "title": title,
+                "systeem": systeem,
+                "lines": len(lines),
+            })
+    return jsonify(result)
+
+
+@app.route("/api/kb/<slug>")
+def api_kb_file(slug):
+    if "user" not in session or session["user"].get("role") != "admin":
+        return jsonify({"error": "Niet toegestaan"}), 403
+    if not _kb_slug_valid(slug):
+        return jsonify({"error": "Ongeldige bestandsnaam"}), 400
+    path = _kb_dir() / f"{slug}.md"
+    if not path.exists():
+        return jsonify({"error": "Niet gevonden"}), 404
+    return path.read_text(encoding="utf-8"), 200, {"Content-Type": "text/plain; charset=utf-8"}
+
+
+@app.route("/admin/kb/save", methods=["POST"])
+def save_kb():
+    if "user" not in session or session["user"].get("role") != "admin":
+        return jsonify({"ok": False, "error": "Niet toegestaan"}), 403
+    data = request.get_json()
+    slug = (data.get("slug") or "").strip()
+    content = (data.get("content") or "").strip()
+    if not _kb_slug_valid(slug):
+        return jsonify({"ok": False, "error": "Ongeldige bestandsnaam (a-z, A-Z, 0-9, - en _)"}), 400
+    if not content:
+        return jsonify({"ok": False, "error": "Inhoud mag niet leeg zijn"}), 400
+    d = _kb_dir()
+    d.mkdir(parents=True, exist_ok=True)
+    (d / f"{slug}.md").write_text(content, encoding="utf-8")
+    import claude_client
+    claude_client.reload_kb_cache()
+    return jsonify({"ok": True})
+
+
+@app.route("/admin/kb/upload", methods=["POST"])
+def upload_kb():
+    if "user" not in session or session["user"].get("role") != "admin":
+        return jsonify({"ok": False, "error": "Niet toegestaan"}), 403
+    uploaded = request.files.get("file")
+    if not uploaded or not uploaded.filename:
+        return jsonify({"ok": False, "error": "Geen bestand"}), 400
+    filename = Path(uploaded.filename).name
+    if not filename.lower().endswith(".md"):
+        return jsonify({"ok": False, "error": "Alleen .md bestanden toegestaan"}), 400
+    slug = filename[:-3]
+    if not _kb_slug_valid(slug):
+        return jsonify({"ok": False, "error": "Ongeldige bestandsnaam"}), 400
+    d = _kb_dir()
+    d.mkdir(parents=True, exist_ok=True)
+    (d / filename).write_bytes(uploaded.read())
+    import claude_client
+    claude_client.reload_kb_cache()
+    return jsonify({"ok": True, "slug": slug})
+
+
+@app.route("/admin/kb/<slug>", methods=["DELETE"])
+def delete_kb(slug):
+    if "user" not in session or session["user"].get("role") != "admin":
+        return jsonify({"ok": False, "error": "Niet toegestaan"}), 403
+    if not _kb_slug_valid(slug):
+        return jsonify({"ok": False, "error": "Ongeldige bestandsnaam"}), 400
+    path = _kb_dir() / f"{slug}.md"
+    if not path.exists():
+        return jsonify({"ok": False, "error": "Niet gevonden"}), 404
+    path.unlink()
+    import claude_client
+    claude_client.reload_kb_cache()
+    return jsonify({"ok": True})
+
+
 @app.route("/api/departments")
 def api_departments():
     if "user" not in session:

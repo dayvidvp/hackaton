@@ -52,6 +52,10 @@ _CACHE = {
 def invalidate_cache(key: str, value: str):
     _CACHE[key] = value
 
+def reload_kb_cache():
+    _CACHE["kb"] = _load_kb()
+    log.info("KB cache herladen: %d tekens", len(_CACHE["kb"]))
+
 KB_LOOKUP_INSTRUCTION = """
 KENNISBANK RAADPLEGING — altijd uitvoeren bij probleembeschrijving (hogere prioriteit dan ticketaanmaak):
 
