@@ -24,13 +24,14 @@ TOOLS = [
     },
     {
         "name": "create_ticket",
-        "description": "Maak een nieuw Jira ticket aan.",
+        "description": "Maak een nieuw Jira ticket aan. ALTIJD requires_confirmation=true instellen.",
         "input_schema": {
             "type": "object",
             "properties": {
                 "summary": {"type": "string", "description": "Titel van het ticket"},
                 "description": {"type": "string", "description": "Uitgebreide beschrijving"},
-                "project": {"type": "string", "description": "Jira project key"}
+                "project": {"type": "string", "description": "Jira project key"},
+                "requires_confirmation": {"type": "boolean", "description": "Moet true zijn"}
             },
             "required": ["summary", "project"]
         }
@@ -75,6 +76,19 @@ TOOLS = [
         }
     },
     {
+        "name": "search_jira",
+        "description": "Zoek in opgeloste Jira tickets op basis van inhoud. Gebruik dit om te zien hoe gelijkaardige problemen eerder zijn opgelost.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Zoekterm of probleembeschrijving"},
+                "project": {"type": "string", "description": "Optionele Jira project key"},
+                "max_results": {"type": "integer", "description": "Max resultaten (default 10)"}
+            },
+            "required": ["query"]
+        }
+    },
+    {
         "name": "search_confluence",
         "description": "Zoek in de Confluence kennisbank op basis van een zoekopdracht.",
         "input_schema": {
@@ -97,17 +111,6 @@ TOOLS = [
                 "requires_confirmation": {"type": "boolean", "description": "Moet true zijn"}
             },
             "required": ["title", "content", "space_key"]
-        }
-    },
-    {
-        "name": "search_sharepoint",
-        "description": "Zoek documenten en pagina's in SharePoint.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "query": {"type": "string", "description": "Zoekterm"}
-            },
-            "required": ["query"]
         }
     },
 ]

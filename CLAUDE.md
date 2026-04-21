@@ -40,6 +40,7 @@ Claude analyzes each new ticket against:
 |---|---|
 | AI Engine | Claude API — Anthropic (claude-sonnet-4-6 or claude-opus-4-7) |
 | Ticket & Docs | Atlassian MCP — Jira + Confluence (native read/write) |
+| sharepoint > MCP? |
 | Chat Interface | Microsoft Teams Bot Framework |
 | Auth | Azure AD — existing infrastructure |
 | CRM | Dynamics 365 connector (or mock data for demo) |

@@ -1,0 +1,76 @@
+AI HACKATHON 2026
+Projectindiening
+
+Unified AI Workspace Assistant
+Microsoft Teams Bot
+
+
+PROBLEEMSTELLING
+
+OPLOSSING
+Support zoekt handmatig in Confluence (15–30 min/ticket)
+Jira-tickets incompleet — developer mist context en oplossingsrichting
+Klantinfo verspreid over Dynamics, mail en tickets
+Opgeloste problemen worden niet gedocumenteerd
+
+Teams Bot in gewone taal — één interface voor alle systemen
+Jira-tickets auto-aanmaken, smart assignen én oplossing toevoegen
+360° klantview live uit Dynamics in één bericht
+Kennisartikel automatisch terugschrijven naar Confluence
+
+LIVE DEMO FLOW — 5 SCENARIOS
+1  Jira overzicht
+2  Ticket + Smart Assign
+3  Oplossing zoeken
+4  Auto-resolve
+5  Kennisborging
+Bot toont open tickets, signaleert niet-toegewezenen
+Nieuw ticket → historiek geanalyseerd → juiste persoon toegewezen
+Claude vergelijkt met historiek → concrete aanpak met slaagkans
+Ticket analyseren, assignen, oplossing + status update in één stap
+Oplossing → kennisartikel auto-gepubliceerd in Confluence
+
+SMART ASSIGN — HOE HET WERKT
+Claude leest het nieuwe ticket en analyseert:
+Inhoud, component en fouttype van het ticket
+Historiek: wie loste dit soort probleem eerder op?
+Gemiddelde oplostijd per persoon
+Huidige workload en beschikbaarheid
+
+Resultaat per ticket:
+Beste kandidaat met confidence % 
+Alternatief indien 1e niet beschikbaar
+Kant-en-klaar oplossingsvoorstel als comment
+Directe notificatie via Teams aan de assignee
+
+MEERWAARDE PER AFDELING
+Support
+Development
+CRM / Sales
+IT / Azure
+Management
+Iedereen
+Antwoordtijd verkorten
+Volledige context + oplossing bij ticket
+360° klantview in seconden
+Native Azure AD + MCP-integratie
+Minder eilanden, kortere doorlooptijd
+Kennis geborgd
+
+TECHNISCHE STACK
+
+HACKATHON PLANNING
+Claude API — Anthropic (AI-brein + Smart Assign logica)
+Atlassian MCP — Jira + Confluence (native read/write)
+Microsoft Teams Bot Framework
+Azure AD — bestaande infrastructuur
+Dynamics 365 connector of mockdata voor demo
+
+
+
+Platform
+Claude AI — Anthropic
+Team
+4–5 personen
+Maart 2026
+

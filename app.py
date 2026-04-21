@@ -1,15 +1,20 @@
-import os, json, uuid
+import os, json, uuid, logging, traceback
+from pathlib import Path
 from flask import Flask, request, jsonify, session, redirect, url_for, render_template, Response
 from dotenv import load_dotenv
 from auth import check_credentials, get_user
 from claude_client import ClaudeClient
 
-load_dotenv()
+logging.basicConfig(level=logging.DEBUG)
+log = logging.getLogger(__name__)
+
+load_dotenv(Path(__file__).parent / ".env", override=True)
 
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-secret-change-me")
 
 claude = ClaudeClient()
+log.debug("API key loaded: %s", bool(os.getenv("ANTHROPIC_API_KEY")))
 
 
 @app.route("/")
@@ -55,15 +60,21 @@ def chat():
     session["messages"].append({"role": "user", "content": user_message})
     session.modified = True
 
-    result = claude.chat(messages=session["messages"])
+    try:
+        result = claude.chat(messages=session["messages"])
+    except Exception as e:
+        log.error("Claude chat error: %s\n%s", e, traceback.format_exc())
+        return jsonify({"error": str(e)}), 500
 
     if result["type"] == "confirmation_required":
         action_id = str(uuid.uuid4())
         session["pending_action"] = {
             "id": action_id,
             "tool_name": result["tool_name"],
+            "tool_id": result["tool_id"],
             "tool_input": result["tool_input"],
-            "messages_snapshot": list(session["messages"])
+            "assistant_content": result["assistant_content"],
+            "messages_at_confirmation": result["messages_at_confirmation"],
         }
         session.modified = True
         return jsonify({
@@ -98,8 +109,10 @@ def confirm():
 
     result = claude.execute_confirmed_tool(
         tool_name=pending["tool_name"],
+        tool_id=pending["tool_id"],
         tool_input=pending["tool_input"],
-        messages=pending["messages_snapshot"]
+        messages_at_confirmation=pending["messages_at_confirmation"],
+        assistant_content=pending["assistant_content"]
     )
     session["messages"].append({"role": "assistant", "content": result.get("text", "Actie uitgevoerd.")})
     session.modified = True
@@ -107,4 +120,4 @@ def confirm():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", debug=True)

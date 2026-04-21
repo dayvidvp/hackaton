@@ -1,11 +1,6 @@
 import json, os, requests
 from pathlib import Path
 
-JIRA_BASE = os.getenv("JIRA_BASE_URL", "")
-AUTH = (os.getenv("JIRA_EMAIL", ""), os.getenv("JIRA_API_TOKEN", ""))
-HEADERS = {"Accept": "application/json", "Content-Type": "application/json"}
-USE_MOCK = os.getenv("USE_MOCK_DATA", "false").lower() == "true"
-
 def _mock_data():
     path = Path(__file__).parent.parent / "fixtures" / "jira_mock.json"
     return json.loads(path.read_text())
@@ -42,6 +37,29 @@ def get_open_tickets(project: str = None) -> list:
             "status": i["fields"]["status"]["name"],
             "assignee": (i["fields"]["assignee"] or {}).get("displayName"),
             "description": i["fields"].get("description", "")
+        }
+        for i in issues
+    ]
+
+def search_jira(query: str, project: str = None, max_results: int = 10) -> list:
+    if os.getenv("USE_MOCK_DATA", "false").lower() == "true":
+        tickets = _mock_data()["resolved_tickets"]
+        q = query.lower()
+        return [t for t in tickets if q in t.get("summary", "").lower() or q in t.get("resolution", "").lower()] or tickets[:2]
+    jql = f'text ~ "{query}" AND status=Done ORDER BY resolutiondate DESC'
+    if project:
+        jql = f'project={project} AND {jql}'
+    issues = _jira_search(jql, "summary,status,assignee,comment,resolutiondate", max_results)
+    return [
+        {
+            "id": i["key"],
+            "summary": i["fields"]["summary"],
+            "assignee": (i["fields"]["assignee"] or {}).get("displayName"),
+            "resolution": next(
+                (c["body"] for c in i["fields"].get("comment", {}).get("comments", [])[-1:]),
+                ""
+            ),
+            "resolved_at": i["fields"].get("resolutiondate", "")
         }
         for i in issues
     ]

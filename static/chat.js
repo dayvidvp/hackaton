@@ -83,14 +83,17 @@ async function sendMessage() {
     const data = await resp.json();
     hideTyping();
 
-    if (data.type === 'confirmation_required') {
+    if (data.error) {
+      addMessage('Fout: ' + data.error, 'assistant');
+    } else if (data.type === 'confirmation_required') {
       showConfirmation(data.action_id, data.message);
     } else {
-      addMessage(data.message, 'assistant');
+      addMessage(data.message || '(leeg antwoord)', 'assistant');
     }
   } catch (e) {
     hideTyping();
-    addMessage('Er is een fout opgetreden. Probeer opnieuw.', 'assistant');
+    addMessage('Netwerkfout: ' + e.message, 'assistant');
+    console.error(e);
   } finally {
     sendBtn.disabled = false;
     input.focus();
