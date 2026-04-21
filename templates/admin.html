@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pollet AI — Admin</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #0f1117;
+      min-height: 100vh;
+      color: #e2e8f0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── HEADER ── */
+    header {
+      background: #161b27;
+      border-bottom: 1px solid #1e2535;
+      padding: 0 28px;
+      height: 60px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-icon {
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; font-weight: 700; color: white;
+    }
+
+    .logo h1 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #f1f5f9;
+      letter-spacing: -0.02em;
+    }
+
+    .logo-sub {
+      font-size: 0.78rem;
+      color: #6366f1;
+      font-weight: 500;
+      margin-left: 2px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .back-btn {
+      background: #1e2535;
+      border: 1px solid #2d3748;
+      color: #94a3b8;
+      padding: 5px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.78rem;
+      font-family: inherit;
+      font-weight: 500;
+      transition: all 0.15s;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .back-btn:hover { background: #252f40; color: #cbd5e1; }
+
+    .user-avatar {
+      width: 30px; height: 30px;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.75rem; font-weight: 600; color: white;
+      flex-shrink: 0;
+    }
+
+    .user-name { color: #cbd5e1; font-weight: 500; font-size: 0.82rem; }
+
+    /* ── MAIN CONTENT ── */
+    .page-content {
+      flex: 1;
+      padding: 32px 28px;
+      max-width: 1200px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .page-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin-bottom: 28px;
+      letter-spacing: -0.02em;
+    }
+
+    /* ── TWO-COLUMN GRID ── */
+    .admin-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+
+    @media (max-width: 820px) {
+      .admin-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ── CARDS ── */
+    .card {
+      background: #161b27;
+      border: 1px solid #1e2535;
+      border-radius: 14px;
+      padding: 24px;
+    }
+
+    .card-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #f1f5f9;
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-title-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #6366f1;
+      flex-shrink: 0;
+    }
+
+    /* ── USERS TABLE ── */
+    .users-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+
+    .users-table th {
+      text-align: left;
+      color: #475569;
+      font-weight: 500;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 0 0 10px 0;
+      border-bottom: 1px solid #1e2535;
+    }
+
+    .users-table td {
+      padding: 11px 0;
+      border-bottom: 1px solid #1a1f2e;
+      color: #cbd5e1;
+      vertical-align: middle;
+    }
+
+    .users-table tr:last-child td { border-bottom: none; }
+
+    .users-table td.name { font-weight: 500; color: #e2e8f0; }
+
+    .users-table td.email {
+      color: #64748b;
+      font-size: 0.8rem;
+    }
+
+    .role-badge {
+      padding: 2px 9px;
+      border-radius: 20px;
+      font-size: 0.72rem;
+      font-weight: 500;
+      display: inline-block;
+    }
+    .role-badge.admin { background: #1e3a5f; color: #60a5fa; }
+    .role-badge.beperkt { background: #2d1f0e; color: #fb923c; }
+
+    /* ── PROMPT EDITOR ── */
+    .prompt-group {
+      margin-bottom: 20px;
+    }
+
+    .prompt-group:last-of-type { margin-bottom: 0; }
+
+    .prompt-label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+
+    .prompt-textarea {
+      width: 100%;
+      background: #0f1117;
+      border: 1px solid #2d3748;
+      border-radius: 10px;
+      color: #cbd5e1;
+      font-family: 'Inter', monospace;
+      font-size: 0.82rem;
+      line-height: 1.6;
+      padding: 12px 14px;
+      resize: vertical;
+      min-height: 180px;
+      transition: border-color 0.2s;
+      outline: none;
+    }
+
+    .prompt-textarea:focus { border-color: #6366f1; }
+
+    .save-row {
+      margin-top: 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .save-btn {
+      background: linear-gradient(135deg, #6366f1, #7c3aed);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 22px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .save-btn:hover { opacity: 0.85; }
+    .save-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .save-status {
+      font-size: 0.82rem;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .save-status.visible { opacity: 1; }
+    .save-status.ok { color: #34d399; }
+    .save-status.err { color: #f87171; }
+
+    /* ── TABS ── */
+    .tab-bar {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 24px;
+      border-bottom: 1px solid #1e2535;
+      padding-bottom: 0;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: #64748b;
+      padding: 8px 18px 10px;
+      font-size: 0.88rem;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.15s;
+      margin-bottom: -1px;
+    }
+    .tab-btn:hover { color: #cbd5e1; }
+    .tab-btn.active { color: #818cf8; border-bottom-color: #6366f1; }
+
+    /* ── DEPARTMENTS ── */
+    .dept-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+
+    .dept-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #0f1117;
+      border: 1px solid #1e2535;
+      border-radius: 10px;
+      padding: 12px 16px;
+    }
+
+    .dept-row-name { font-weight: 500; color: #e2e8f0; font-size: 0.88rem; }
+    .dept-row-slug { font-size: 0.76rem; color: #64748b; margin-top: 2px; }
+    .dept-row-actions { display: flex; gap: 8px; }
+
+    .dept-action-btn {
+      background: #1e2535;
+      border: 1px solid #2d3748;
+      color: #94a3b8;
+      padding: 4px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.78rem;
+      font-family: inherit;
+      transition: all 0.15s;
+    }
+    .dept-action-btn:hover { background: #252f40; color: #cbd5e1; }
+    .dept-action-btn.danger { border-color: #7f1d1d; color: #f87171; }
+    .dept-action-btn.danger:hover { background: #2d1515; }
+
+    .dept-editor {
+      background: #0f1117;
+      border: 1px solid #6366f1;
+      border-radius: 12px;
+      padding: 18px;
+      margin-bottom: 16px;
+      display: none;
+    }
+    .dept-editor.visible { display: block; }
+
+    .dept-editor-row { margin-bottom: 14px; }
+    .dept-editor-label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 6px;
+    }
+    .dept-editor-input {
+      width: 100%;
+      background: #161b27;
+      border: 1px solid #2d3748;
+      border-radius: 8px;
+      color: #e2e8f0;
+      font-family: inherit;
+      font-size: 0.85rem;
+      padding: 8px 12px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .dept-editor-input:focus { border-color: #6366f1; }
+    .dept-editor-textarea {
+      width: 100%;
+      background: #161b27;
+      border: 1px solid #2d3748;
+      border-radius: 8px;
+      color: #cbd5e1;
+      font-family: 'Inter', monospace;
+      font-size: 0.82rem;
+      line-height: 1.6;
+      padding: 10px 12px;
+      resize: vertical;
+      min-height: 160px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .dept-editor-textarea:focus { border-color: #6366f1; }
+    .dept-editor-error { color: #f87171; font-size: 0.8rem; margin-top: 6px; display: none; }
+    .dept-editor-error.visible { display: block; }
+
+    .add-dept-btn {
+      background: transparent;
+      border: 1px dashed #2d3748;
+      color: #64748b;
+      padding: 10px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-family: inherit;
+      width: 100%;
+      transition: all 0.15s;
+    }
+    .add-dept-btn:hover { border-color: #6366f1; color: #818cf8; background: #0f1117; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">P</div>
+    <h1>Pollet AI</h1>
+    <span class="logo-sub">Admin</span>
+  </div>
+  <div class="header-right">
+    <div class="user-avatar">{{ user.display_name[0] | upper }}</div>
+    <span class="user-name">{{ user.display_name }}</span>
+    <a href="/" class="back-btn">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+      Terug naar chat
+    </a>
+  </div>
+</header>
+
+<div class="page-content">
+  <div class="page-title">Beheer</div>
+
+  <!-- Tab bar -->
+  <div class="tab-bar">
+    <button class="tab-btn active" id="tab-overzicht" onclick="showTab('overzicht')">Overzicht</button>
+    <button class="tab-btn" id="tab-afdelingen" onclick="showTab('afdelingen')">Afdelingen</button>
+  </div>
+
+  <!-- Tab: Overzicht -->
+  <div id="panel-overzicht">
+    <div class="admin-grid">
+
+      <!-- LEFT: Users -->
+      <div class="card">
+        <div class="card-title">
+          <span class="card-title-dot"></span>
+          Gebruikers
+        </div>
+        <table class="users-table">
+          <thead>
+            <tr>
+              <th>Naam</th>
+              <th>E-mail</th>
+              <th>Rol</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for u in all_users %}
+            <tr>
+              <td class="name">{{ u.display_name }}</td>
+              <td class="email">{{ u.email }}</td>
+              <td><span class="role-badge {{ u.role }}">{{ u.role }}</span></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- RIGHT: Prompt editor -->
+      <div class="card">
+        <div class="card-title">
+          <span class="card-title-dot"></span>
+          Prompt editor
+        </div>
+
+        <div class="prompt-group">
+          <label class="prompt-label" for="prompt-admin">Admin prompt</label>
+          <textarea id="prompt-admin" class="prompt-textarea" rows="8">{{ prompts.admin }}</textarea>
+        </div>
+
+        <div class="prompt-group">
+          <label class="prompt-label" for="prompt-beperkt">Beperkt prompt</label>
+          <textarea id="prompt-beperkt" class="prompt-textarea" rows="8">{{ prompts.beperkt }}</textarea>
+        </div>
+
+        <div class="save-row">
+          <button class="save-btn" id="save-btn" onclick="savePrompts()">Opslaan</button>
+          <span class="save-status" id="save-status"></span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Tab: Afdelingen -->
+  <div id="panel-afdelingen" style="display:none;">
+    <div class="card" style="max-width:680px;">
+      <div class="card-title">
+        <span class="card-title-dot"></span>
+        Afdeling scripts
+      </div>
+
+      <div id="dept-list" class="dept-list">
+        <!-- populated by JS -->
+      </div>
+
+      <div class="dept-editor" id="dept-editor">
+        <div class="dept-editor-row">
+          <label class="dept-editor-label">Naam (slug)</label>
+          <input type="text" id="dept-slug" class="dept-editor-input" placeholder="its" maxlength="40">
+          <div class="dept-editor-error" id="dept-slug-error"></div>
+        </div>
+        <div class="dept-editor-row">
+          <label class="dept-editor-label">Inhoud (markdown)</label>
+          <textarea id="dept-content" class="dept-editor-textarea"></textarea>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button class="save-btn" onclick="saveDepartment()">Opslaan</button>
+          <button class="dept-action-btn" onclick="closeDeptEditor()">Annuleren</button>
+          <span class="save-status" id="dept-save-status" style="margin-left:4px;"></span>
+        </div>
+      </div>
+
+      <button class="add-dept-btn" onclick="openDeptEditor(null)">+ Nieuwe afdeling</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+async function savePrompts() {
+  const btn = document.getElementById('save-btn');
+  const status = document.getElementById('save-status');
+  const adminPrompt = document.getElementById('prompt-admin').value.trim();
+  const beperktPrompt = document.getElementById('prompt-beperkt').value.trim();
+
+  if (!adminPrompt || !beperktPrompt) {
+    showStatus('Velden mogen niet leeg zijn.', false);
+    return;
+  }
+
+  btn.disabled = true;
+  status.className = 'save-status';
+  status.textContent = '';
+
+  try {
+    const res = await fetch('/save-prompts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ admin: adminPrompt, beperkt: beperktPrompt })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      showStatus('Opgeslagen.', true);
+    } else {
+      showStatus(data.error || 'Opslaan mislukt.', false);
+    }
+  } catch (e) {
+    showStatus('Netwerkfout.', false);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function showStatus(msg, ok) {
+  const el = document.getElementById('save-status');
+  el.textContent = msg;
+  el.className = 'save-status visible ' + (ok ? 'ok' : 'err');
+  if (ok) setTimeout(() => { el.className = 'save-status'; }, 3000);
+}
+
+// ── TAB NAVIGATION ──
+function showTab(name) {
+  ['overzicht', 'afdelingen'].forEach(t => {
+    document.getElementById('panel-' + t).style.display = t === name ? '' : 'none';
+    document.getElementById('tab-' + t).classList.toggle('active', t === name);
+  });
+  if (name === 'afdelingen') loadDepartments();
+}
+
+// ── DEPARTMENTS ──
+let editingSlug = null;
+
+async function loadDepartments() {
+  const list = document.getElementById('dept-list');
+  list.innerHTML = '<span style="color:#64748b;font-size:0.85rem;">Laden...</span>';
+  try {
+    const resp = await fetch('/api/departments');
+    const depts = await resp.json();
+    if (depts.length === 0) {
+      list.innerHTML = '<span style="color:#64748b;font-size:0.85rem;">Geen afdelingen geconfigureerd.</span>';
+      return;
+    }
+    list.innerHTML = depts.map(d => `
+      <div class="dept-row">
+        <div>
+          <div class="dept-row-name">${d.name}</div>
+          <div class="dept-row-slug">${d.slug}</div>
+        </div>
+        <div class="dept-row-actions">
+          <button class="dept-action-btn" onclick="openDeptEditor('${d.slug}')">Bewerken</button>
+          <button class="dept-action-btn danger" onclick="deleteDepartment('${d.slug}')">Verwijderen</button>
+        </div>
+      </div>
+    `).join('');
+  } catch (e) {
+    list.innerHTML = '<span style="color:#f87171;font-size:0.85rem;">Fout bij laden: ' + e.message + '</span>';
+  }
+}
+
+async function openDeptEditor(slug) {
+  editingSlug = slug;
+  const editor = document.getElementById('dept-editor');
+  const slugInput = document.getElementById('dept-slug');
+  const contentArea = document.getElementById('dept-content');
+  document.getElementById('dept-slug-error').className = 'dept-editor-error';
+  document.getElementById('dept-save-status').className = 'save-status';
+
+  if (slug) {
+    slugInput.value = slug;
+    slugInput.readOnly = true;
+    try {
+      const resp = await fetch('/api/departments/' + slug);
+      contentArea.value = await resp.text();
+    } catch (e) {
+      contentArea.value = '';
+    }
+  } else {
+    slugInput.value = '';
+    slugInput.readOnly = false;
+    contentArea.value = '# Nieuwe afdeling — Ticket vragen\n\n1. \n2. \n3. ';
+  }
+
+  editor.className = 'dept-editor visible';
+  slugInput.focus();
+}
+
+function closeDeptEditor() {
+  document.getElementById('dept-editor').className = 'dept-editor';
+  editingSlug = null;
+}
+
+async function saveDepartment() {
+  const slug = document.getElementById('dept-slug').value.trim().toLowerCase();
+  const content = document.getElementById('dept-content').value.trim();
+  const errEl = document.getElementById('dept-slug-error');
+  const statusEl = document.getElementById('dept-save-status');
+
+  if (!/^[a-z0-9_]+$/.test(slug)) {
+    errEl.textContent = 'Alleen a-z, 0-9 en _ toegestaan.';
+    errEl.className = 'dept-editor-error visible';
+    return;
+  }
+  errEl.className = 'dept-editor-error';
+
+  try {
+    const resp = await fetch('/admin/departments/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug, content })
+    });
+    const data = await resp.json();
+    if (data.ok) {
+      statusEl.textContent = 'Opgeslagen.';
+      statusEl.className = 'save-status visible ok';
+      setTimeout(() => {
+        closeDeptEditor();
+        loadDepartments();
+      }, 800);
+    } else {
+      statusEl.textContent = data.error || 'Opslaan mislukt.';
+      statusEl.className = 'save-status visible err';
+    }
+  } catch (e) {
+    statusEl.textContent = 'Netwerkfout.';
+    statusEl.className = 'save-status visible err';
+  }
+}
+
+async function deleteDepartment(slug) {
+  if (!confirm(`Afdeling "${slug}" verwijderen?`)) return;
+  try {
+    const resp = await fetch('/admin/departments/' + slug, { method: 'DELETE' });
+    const data = await resp.json();
+    if (data.ok) loadDepartments();
+  } catch (e) {
+    alert('Verwijderen mislukt: ' + e.message);
+  }
+}
+</script>
+
+</body>
+</html>
