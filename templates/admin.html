@@ -463,6 +463,22 @@
         </div>
       </div>
 
+      <!-- Algemene regels -->
+      <div class="card" style="margin-top:20px;">
+        <div class="card-title">
+          <span class="card-title-dot"></span>
+          Algemene regels chatbot
+        </div>
+        <div class="prompt-group" style="margin-bottom:0;">
+          <label class="prompt-label" for="prompt-algemene-regels">Regels die altijd gevolgd worden (algemene_regels.md)</label>
+          <textarea id="prompt-algemene-regels" class="prompt-textarea" rows="10">Laden...</textarea>
+        </div>
+        <div class="save-row">
+          <button class="save-btn" id="save-algemene-regels-btn" onclick="saveAlgemeneRegels()">Opslaan</button>
+          <span class="save-status" id="save-algemene-regels-status"></span>
+        </div>
+      </div>
+
       <!-- Selectie prompt -->
       <div class="card" style="margin-top:20px;">
         <div class="card-title">
@@ -517,10 +533,42 @@
 </div>
 
 <script>
-// Load selectie.md on page load
+// Load algemene_regels.md and selectie.md on page load
+fetch('/api/algemene_regels').then(r => r.text()).then(t => {
+  document.getElementById('prompt-algemene-regels').value = t;
+}).catch(() => {});
+
 fetch('/api/selectie').then(r => r.text()).then(t => {
   document.getElementById('prompt-selectie').value = t;
 }).catch(() => {});
+
+async function saveAlgemeneRegels() {
+  const btn = document.getElementById('save-algemene-regels-btn');
+  const status = document.getElementById('save-algemene-regels-status');
+  const content = document.getElementById('prompt-algemene-regels').value.trim();
+  if (!content) {
+    status.textContent = 'Veld mag niet leeg zijn.';
+    status.className = 'save-status visible err';
+    return;
+  }
+  btn.disabled = true;
+  try {
+    const res = await fetch('/admin/algemene_regels/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content })
+    });
+    const data = await res.json();
+    status.textContent = data.ok ? 'Opgeslagen.' : (data.error || 'Mislukt.');
+    status.className = 'save-status visible ' + (data.ok ? 'ok' : 'err');
+    if (data.ok) setTimeout(() => { status.className = 'save-status'; }, 3000);
+  } catch (e) {
+    status.textContent = 'Netwerkfout.';
+    status.className = 'save-status visible err';
+  } finally {
+    btn.disabled = false;
+  }
+}
 
 async function saveSelectie() {
   const btn = document.getElementById('save-selectie-btn');

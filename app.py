@@ -171,6 +171,31 @@ def save_prompts():
     return jsonify({"ok": True})
 
 
+def _algemene_regels_path() -> Path:
+    return Path(__file__).parent / "docs" / "algemene_regels.md"
+
+
+@app.route("/api/algemene_regels")
+def api_algemene_regels():
+    if "user" not in session:
+        return jsonify({"error": "Niet ingelogd"}), 401
+    path = _algemene_regels_path()
+    text = path.read_text(encoding="utf-8").strip() if path.exists() else ""
+    return text, 200, {"Content-Type": "text/plain; charset=utf-8"}
+
+
+@app.route("/admin/algemene_regels/save", methods=["POST"])
+def save_algemene_regels():
+    if "user" not in session or session["user"].get("role") != "admin":
+        return jsonify({"ok": False, "error": "Niet toegestaan"}), 403
+    data = request.get_json()
+    content = (data.get("content") or "").strip()
+    if not content:
+        return jsonify({"ok": False, "error": "Inhoud mag niet leeg zijn"}), 400
+    _algemene_regels_path().write_text(content, encoding="utf-8")
+    return jsonify({"ok": True})
+
+
 def _selectie_path() -> Path:
     return Path(__file__).parent / "docs" / "selectie.md"
 
