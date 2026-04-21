@@ -58,6 +58,9 @@ def chat():
     if "messages" not in session:
         session["messages"] = []
 
+    if data.get("wizard_completed"):
+        session["messages"] = []
+
     session["messages"].append({"role": "user", "content": user_message})
     session.modified = True
 
