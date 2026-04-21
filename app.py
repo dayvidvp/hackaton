@@ -58,9 +58,6 @@ def chat():
     if "messages" not in session:
         session["messages"] = []
 
-    if data.get("wizard_completed"):
-        session["messages"] = []
-
     session["messages"].append({"role": "user", "content": user_message})
     session.modified = True
 
@@ -71,14 +68,6 @@ def chat():
     except Exception as e:
         log.error("Claude chat error: %s\n%s", e, traceback.format_exc())
         return jsonify({"error": str(e)}), 500
-
-    wizard_completed = data.get("wizard_completed", False)
-    if (not wizard_completed
-            and result.get("type") == "confirmation_required"
-            and result.get("tool_name") == "create_ticket"):
-        session["messages"].pop()
-        session.modified = True
-        return jsonify({"type": "start_wizard", "suggested_department": None})
 
     if result["type"] == "confirmation_required":
         action_id = str(uuid.uuid4())
