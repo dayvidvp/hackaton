@@ -1,9 +1,9 @@
-import os, json, uuid, logging, traceback
+import os, json, uuid, logging, traceback, re
 from pathlib import Path
 from flask import Flask, request, jsonify, session, redirect, url_for, render_template, Response
 from dotenv import load_dotenv
-from auth import check_credentials, get_user
-from claude_client import ClaudeClient
+from auth import get_current_user, get_all_users
+from claude_client import ClaudeClient, PROMPTS
 
 logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger(__name__)
@@ -19,34 +19,35 @@ log.debug("API key loaded: %s", bool(os.getenv("ANTHROPIC_API_KEY")))
 
 @app.route("/")
 def index():
-    if "username" not in session:
+    if "user" not in session:
         return redirect(url_for("login"))
-    return render_template("chat.html", user=get_user(session["username"]))
+    return render_template("chat.html", user=session["user"], all_users=get_all_users())
 
 
-@app.route("/login", methods=["GET", "POST"])
+@app.route("/login")
 def login():
-    error = None
-    if request.method == "POST":
-        username = request.form.get("username", "")
-        password = request.form.get("password", "")
-        if check_credentials(username, password):
-            session["username"] = username
-            session["messages"] = []
-            return redirect(url_for("index"))
-        error = "Ongeldige gebruikersnaam of wachtwoord"
-    return render_template("chat.html", login_mode=True, error=error)
+    user = get_current_user()
+    session["user"] = user
+    session["messages"] = []
+    return redirect(url_for("index"))
 
 
-@app.route("/logout")
-def logout():
-    session.clear()
-    return redirect(url_for("login"))
+
+@app.route("/switch-user", methods=["POST"])
+def switch_user():
+    email = request.get_json().get("email", "").lower()
+    user = next((u for u in get_all_users() if u["email"] == email), None)
+    if not user:
+        return jsonify({"ok": False}), 404
+    session["user"] = user
+    session["messages"] = []
+    session.modified = True
+    return jsonify({"ok": True})
 
 
 @app.route("/chat", methods=["POST"])
 def chat():
-    if "username" not in session:
+    if "user" not in session:
         return jsonify({"error": "Niet ingelogd"}), 401
 
     data = request.get_json()
@@ -61,10 +62,20 @@ def chat():
     session.modified = True
 
     try:
-        result = claude.chat(messages=session["messages"])
+        user_role = session["user"].get("role", "beperkt")
+        log.debug("USER: %s ROLE: %s", session["user"].get("email"), user_role)
+        result = claude.chat(messages=session["messages"], role=user_role, user=session["user"])
     except Exception as e:
         log.error("Claude chat error: %s\n%s", e, traceback.format_exc())
         return jsonify({"error": str(e)}), 500
+
+    wizard_completed = data.get("wizard_completed", False)
+    if (not wizard_completed
+            and result.get("type") == "confirmation_required"
+            and result.get("tool_name") == "create_ticket"):
+        session["messages"].pop()
+        session.modified = True
+        return jsonify({"type": "start_wizard", "suggested_department": None})
 
     if result["type"] == "confirmation_required":
         action_id = str(uuid.uuid4())
@@ -90,7 +101,7 @@ def chat():
 
 @app.route("/confirm", methods=["POST"])
 def confirm():
-    if "username" not in session:
+    if "user" not in session:
         return jsonify({"error": "Niet ingelogd"}), 401
 
     data = request.get_json()
@@ -112,11 +123,115 @@ def confirm():
         tool_id=pending["tool_id"],
         tool_input=pending["tool_input"],
         messages_at_confirmation=pending["messages_at_confirmation"],
-        assistant_content=pending["assistant_content"]
+        assistant_content=pending["assistant_content"],
+        role=session["user"].get("role", "beperkt"),
+        user=session["user"]
     )
     session["messages"].append({"role": "assistant", "content": result.get("text", "Actie uitgevoerd.")})
     session.modified = True
     return jsonify({"type": "text", "message": result.get("text", "Actie uitgevoerd.")})
+
+
+@app.route("/admin")
+def admin():
+    if "user" not in session or session["user"].get("role") != "admin":
+        return redirect(url_for("index"))
+    return render_template("admin.html", user=session["user"], all_users=get_all_users(), prompts=PROMPTS)
+
+
+@app.route("/save-prompts", methods=["POST"])
+def save_prompts():
+    if "user" not in session or session["user"].get("role") != "admin":
+        return jsonify({"ok": False, "error": "Niet toegestaan"}), 403
+
+    data = request.get_json()
+    admin_prompt = data.get("admin", "").strip()
+    beperkt_prompt = data.get("beperkt", "").strip()
+
+    if not admin_prompt or not beperkt_prompt:
+        return jsonify({"ok": False, "error": "Lege prompt niet toegestaan"}), 400
+
+    prompts_path = Path(__file__).parent / "prompts.json"
+    try:
+        prompts_path.write_text(
+            json.dumps({"admin": admin_prompt, "beperkt": beperkt_prompt}, ensure_ascii=False, indent=2),
+            encoding="utf-8"
+        )
+        # Reload into the live module-level dict so changes take effect immediately
+        import claude_client
+        claude_client.PROMPTS["admin"] = admin_prompt
+        claude_client.PROMPTS["beperkt"] = beperkt_prompt
+        # Update the local reference imported at startup
+        PROMPTS["admin"] = admin_prompt
+        PROMPTS["beperkt"] = beperkt_prompt
+    except Exception as e:
+        log.error("save-prompts error: %s", e)
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+    return jsonify({"ok": True})
+
+
+def _departments_dir() -> Path:
+    return Path(__file__).parent / "docs" / "departments"
+
+
+@app.route("/api/departments")
+def api_departments():
+    if "user" not in session:
+        return jsonify({"error": "Niet ingelogd"}), 401
+    d = _departments_dir()
+    result = []
+    if d.exists():
+        for f in sorted(d.glob("*.md")):
+            content = f.read_text(encoding="utf-8")
+            heading = next(
+                (line.lstrip("# ").strip() for line in content.splitlines() if line.startswith("# ")),
+                f.stem.upper()
+            )
+            result.append({"slug": f.stem, "name": heading})
+    return jsonify(result)
+
+
+@app.route("/api/departments/<slug>")
+def api_department(slug):
+    if "user" not in session:
+        return jsonify({"error": "Niet ingelogd"}), 401
+    if not re.match(r'^[a-z0-9_]+$', slug):
+        return jsonify({"error": "Ongeldige slug"}), 400
+    path = _departments_dir() / f"{slug}.md"
+    if not path.exists():
+        return jsonify({"error": "Niet gevonden"}), 404
+    return path.read_text(encoding="utf-8"), 200, {"Content-Type": "text/plain; charset=utf-8"}
+
+
+@app.route("/admin/departments/save", methods=["POST"])
+def save_department():
+    if "user" not in session or session["user"].get("role") != "admin":
+        return jsonify({"ok": False, "error": "Niet toegestaan"}), 403
+    data = request.get_json()
+    slug = (data.get("slug") or "").strip().lower()
+    content = (data.get("content") or "").strip()
+    if not re.match(r'^[a-z0-9_]+$', slug):
+        return jsonify({"ok": False, "error": "Ongeldige naam (alleen a-z, 0-9, _)"}), 400
+    if not content:
+        return jsonify({"ok": False, "error": "Inhoud mag niet leeg zijn"}), 400
+    d = _departments_dir()
+    d.mkdir(parents=True, exist_ok=True)
+    (d / f"{slug}.md").write_text(content, encoding="utf-8")
+    return jsonify({"ok": True})
+
+
+@app.route("/admin/departments/<slug>", methods=["DELETE"])
+def delete_department(slug):
+    if "user" not in session or session["user"].get("role") != "admin":
+        return jsonify({"ok": False, "error": "Niet toegestaan"}), 403
+    if not re.match(r'^[a-z0-9_]+$', slug):
+        return jsonify({"ok": False, "error": "Ongeldige slug"}), 400
+    path = _departments_dir() / f"{slug}.md"
+    if not path.exists():
+        return jsonify({"ok": False, "error": "Niet gevonden"}), 404
+    path.unlink()
+    return jsonify({"ok": True})
 
 
 if __name__ == "__main__":
